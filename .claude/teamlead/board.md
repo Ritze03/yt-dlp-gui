@@ -4,6 +4,12 @@
 
 | ✓ | ID | Task | Agent | Owns | State | Branch |
 |:-:|:--:|------|-------|------|-------|--------|
+|   | 7 | Settings panel: folder path field w/ validation, parallel 1-4, cookies browser, subtitles + lang — I7 | `tl-sonnet-high` | `internal/ui/app/settingspanel.go`, `internal/ui/app/settingspanel_test.go` | queued | — |
+|   | 8 | Playlist picker: entry checkbox list, select all/none, one preset for all — I8 | `tl-sonnet-high` | `internal/ui/app/playlist.go`, `internal/ui/app/playlist_test.go` | queued | — |
+|   | 9 | Advanced… Discloser with real format list for single videos, no section fields — I9 | `tl-sonnet-high` | `internal/ui/app/formats.go`, `internal/ui/app/formats_test.go` | queued | — |
+|   | 10 | Row actions: error line + hint + expandable stderr, Retry, Open file / Show in folder via xdg-open — I10 | `tl-sonnet-high` | `internal/ui/app/row.go`, `internal/ui/app/row_test.go` | queued | — |
+|   | 11 | Wire I7-I10 into the main window (gear→settings, playlist→picker, Advanced→format list, row actions) + footer update warning — I11 | `tl-sonnet-high` | `internal/ui/app/window.go`, `main.go` | blocked-by 7,8,9,10 | — |
+|   | 12 | QC phase B: review + build/vet/test + headless smoke run — I12 | `tl-sonnet-high` | *(read-only)* | blocked-by 11 | — |
 
 ## Done
 

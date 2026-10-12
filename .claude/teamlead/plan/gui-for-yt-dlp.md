@@ -1,7 +1,7 @@
 # GUI for yt-dlp
 
-> **Stage 7** — user-testing phase A (I1–I6) · started 2026-10-12
-> Phase B follows after phase A's testing.
+> **Stage 5** — building phase B (I7–I12) · started 2026-10-12
+> Phase A passed agent and user testing.
 
 ## Goal
 A lean, good-looking personal Go + Gio desktop app for yt-dlp. Paste a URL or playlist, pick a preset or an exact format, and watch a download queue with progress, in dark or light mode.
@@ -102,8 +102,8 @@ Empty project directory (greenfield, not a git repo). Machine scout, 2026-10-12:
 - [x] Cancelling mid-download leaves no `yt-dlp`/`ffmpeg` process (`pgrep`), and the `.part` file remains — *verified by: agent* — ran `pgrep -a yt-dlp; pgrep -a ffmpeg` after row cancel of Lv3f5sEe1Hw → empty, `.f398.mp4.part` kept; window close mid-download → no procs at T+7s
 - [x] The theme choice survives a restart (`settings.json` written and read back) — *verified by: agent* — ran `cat settings.json` after the toggle → `"dark": false`; relaunch with same XDG_CONFIG_HOME → started light
 - [x] `grim` screenshots of the main window in dark and light mode, saved for review — *verified by: agent* — ran `scripts/headless.sh shot` → `scratchpad/shots/08-queue-all-done-dark.png`, `09-queue-light-tall.png`, `12-best-stages-montage-light.png`
-- [ ] It looks stylish but restrained in both themes, and the accent works — *verified by: user*
-- [ ] Downloading your own URLs through it feels right — *verified by: user*
+- [x] It looks stylish but restrained in both themes, and the accent works — *verified by: user*
+- [x] Downloading your own URLs through it feels right — *verified by: user*
 
 **Phase B — playlists, formats, settings, row actions**
 - [ ] The playlist picker, fed a fixture `-J --flat-playlist` JSON, queues only the checked entries with the D21 playlist template — *verified by: agent*

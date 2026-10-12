@@ -4,6 +4,9 @@
 
 | ✓ | ID | Task | Agent | Owns | State | Branch |
 |:-:|:--:|------|-------|------|-------|--------|
+|   | 25 | User request: `yt-dlp-gui install` / `uninstall` subcommands modelled on Ritze03/ccorral (binary to ~/.local/bin + .desktop entry, confirm first, no service) — I11 | `tl-sonnet-high` | `main.go`, `install.go`, `install_test.go` | queued | — |
+|   | 26 | User request: README screenshots from headless sway (dark/light, downloads of dQw4w9WgXcQ, settings modal, Advanced list) — I11 | `tl-sonnet-high` | `docs/screenshots` | queued | — |
+|   | 27 | User request: rewrite README fully (install/uninstall, screenshots, features as built) — I11 | `tl-sonnet-medium` | `README.md` | blocked-by 25,26 | — |
 
 ## Done
 

@@ -1,6 +1,6 @@
 # GUI for yt-dlp
 
-> **Stage 7** — user-testing phase B (three queue bar buttons merged) · started 2026-10-12
+> **Stage 5** — building user requests: install/uninstall subcommands (ccorral-style), README screenshots + full README · started 2026-10-12
 > Phase A passed agent and user testing.
 
 ## Goal

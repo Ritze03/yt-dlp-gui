@@ -1,6 +1,6 @@
 # GUI for yt-dlp
 
-> **Stage 5** — building user note: no click ripple on greyed-out bar buttons · started 2026-10-12
+> **Stage 7** — user-testing phase B (disabled-button ripple fix merged) · started 2026-10-12
 > Phase A passed agent and user testing.
 
 ## Goal

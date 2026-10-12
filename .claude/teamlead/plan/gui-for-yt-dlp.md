@@ -1,6 +1,6 @@
 # GUI for yt-dlp
 
-> **Stage 5** — building user notes: name "yt-dlp-gui" in the UI, README · started 2026-10-12
+> **Stage 7** — user-testing phase B (rename, bar height, README merged) · started 2026-10-12
 > Phase A passed agent and user testing.
 
 ## Goal

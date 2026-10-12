@@ -1,6 +1,6 @@
 # GUI for yt-dlp
 
-> **Stage 7** — user-testing phase B (all user notes + approved polish merged) · started 2026-10-12
+> **Stage 5** — building user-testing notes: retry picks up new cookies, queue spacing, clear completed · started 2026-10-12
 > Phase A passed agent and user testing.
 
 ## Goal

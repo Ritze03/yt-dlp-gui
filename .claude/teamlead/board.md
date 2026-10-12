@@ -4,6 +4,7 @@
 
 | ✓ | ID | Task | Agent | Owns | State | Branch |
 |:-:|:--:|------|-------|------|-------|--------|
+|   | 19 | User notes: Retry uses current cookies/subtitle settings; gap+clip between input area and queue list; 'Clear completed' button — I11 | `tl-sonnet-high` | `internal/queue`, `internal/ui/app/window.go`, `internal/ui/app/window_test.go` | queued | — |
 
 ## Done
 

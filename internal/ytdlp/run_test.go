@@ -225,9 +225,20 @@ func TestRemovePartFiles(t *testing.T) {
 	rm := []string{
 		mk("001 - Song [x].f401.mp4.part"), mk("001 - Song [x].f140.m4a.part"),
 		mk("001 - Song [x].f251.webm.part-Frag7"), mk("001 - Song [x].f251.webm.ytdl"), mk("001 - Song [x].m4a.part"),
+		mk("001 - Song [x].webp"), mk("001 - Song [x].jpg"), mk("001 - Song [x].png"), // thumbnails
+		mk("001 - Song [x].en.vtt"), mk("001 - Song [x].en-orig.srt"), // subtitles
+	}
+	if err := os.Mkdir(filepath.Join(dir, "My Mix", "001 - Song [x].jpeg"), 0o755); err != nil { // a directory with a sidecar name is never deleted
+		t.Fatal(err)
 	}
 	keep := []string{
-		mk("001 - Song [x].m4a"),           // finished file of this entry
+		mk("001 - Song [x].m4a"), // finished file of this entry
+		mk("001 - Song [x].mp4"), mk("001 - Song [x].mkv"), mk("001 - Song [x].webm"),
+		mk("001 - Song [x].mp3"), mk("001 - Song [x].opus"),
+		mk("002 - Other [y].webp"),  // another entry's thumbnail
+		mk("001 - Song [x] 2.webp"), // different stem sharing a prefix
+		mk("001 - Song [x] 2.en.vtt"),
+		filepath.Join(dir, "My Mix", "001 - Song [x].jpeg"),
 		mk("002 - Other [y].f1.mp4.part"),  // another entry's partial
 		mk("001 - Song [x] copy.mp4.part"), // different stem sharing a prefix
 	}

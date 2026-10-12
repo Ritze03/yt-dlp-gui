@@ -48,12 +48,15 @@ func Download(ctx context.Context, o Options, onProgress func(Progress)) (Result
 	return res, nil
 }
 
-// RemovePartFiles deletes the partial files of an unfinished download: every
-// file in dest's folder named "<stem>.*" that contains ".part" (video/audio
-// streams "<stem>.f401.mp4.part", fragments ".part-Frag12") or ends in ".ytdl".
+// RemovePartFiles deletes the leftovers of an unfinished download: every
+// file in dest's folder named "<stem>.<rest>" where rest contains ".part"
+// (streams "<stem>.f401.mp4.part", fragments ".part-Frag12") or ends in ".ytdl",
+// or is a sidecar: a thumbnail "<stem>.webp|jpg|jpeg|png" or subtitles
+// "<stem>.<lang>.vtt|srt|ass|ttml|srv3|json3".
 // dest is Result.Dest, whose stem is exactly what yt-dlp used for the temp
 // files (the extension may differ, only the stem matters). An empty dest, or a
-// missing folder, is a no-op. A finished file (no ".part") is never touched.
+// missing folder, is a no-op. A finished media file (.mp4, .m4a, ...), another
+// stem's files and subfolders are never touched.
 func RemovePartFiles(dest string) error {
 	if dest == "" {
 		return nil
@@ -75,11 +78,30 @@ func RemovePartFiles(dest string) error {
 		if e.IsDir() || !strings.HasPrefix(n, stem) {
 			continue
 		}
-		if rest := n[len(stem):]; strings.Contains(rest, ".part") || strings.HasSuffix(rest, ".ytdl") {
+		if isLeftover(n[len(stem):]) {
 			if err := os.Remove(filepath.Join(dir, n)); err != nil && !errors.Is(err, os.ErrNotExist) {
 				errs = append(errs, err)
 			}
 		}
 	}
 	return errors.Join(errs...)
+}
+
+var (
+	thumbExts = map[string]bool{"webp": true, "jpg": true, "jpeg": true, "png": true}
+	subExts   = map[string]bool{"vtt": true, "srt": true, "ass": true, "ttml": true, "srv3": true, "json3": true}
+)
+
+// isLeftover reports whether rest (a file name after "<stem>.") is a partial
+// or sidecar file that is not part of a finished download.
+func isLeftover(rest string) bool {
+	if strings.Contains(rest, ".part") || strings.HasSuffix(rest, ".ytdl") {
+		return true
+	}
+	i := strings.LastIndex(rest, ".")
+	if i < 0 {
+		return thumbExts[rest]
+	}
+	// "<lang>.<ext>"; ponytail: lang is any non-empty token (a file name has no "/").
+	return i > 0 && subExts[rest[i+1:]]
 }

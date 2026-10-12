@@ -95,11 +95,19 @@ func TestArgsSubs(t *testing.T) {
 	if i := slices.Index(a, "--sub-langs"); i < 0 || a[i+1] != "de" {
 		t.Errorf("lang de: %q", a)
 	}
+	if !slices.Contains(a, "--write-auto-subs") {
+		t.Errorf("subs must also fetch auto captions: %q", a)
+	}
+	exact := Args(Options{URL: "u", Folder: "/d", Preset: P720, Subs: true})
+	if w := want(base, []string{"--write-subs", "--write-auto-subs", "--embed-subs", "--compat-options", "no-keep-subs", "--sub-langs", "en"},
+		[]string{"-f", "bv*+ba/b", "-S", "res:720,ext:mp4:m4a"}, tailArgs("/d", "%(title)s [%(id)s].%(ext)s", "u")); !reflect.DeepEqual(exact, w) {
+		t.Errorf("720p+subs: got %q want %q", exact, w)
+	}
 	if has(Args(Options{URL: "u", Folder: "/d", SubLang: "de"})) {
 		t.Error("subs off must not add --write-subs")
 	}
 	for _, p := range []Preset{AudioM4A, AudioMP3} {
-		if has(Args(Options{URL: "u", Folder: "/d", Preset: p, Subs: true})) {
+		if a := Args(Options{URL: "u", Folder: "/d", Preset: p, Subs: true}); has(a) || slices.Contains(a, "--write-auto-subs") {
 			t.Errorf("audio preset %v must skip subs", p)
 		}
 	}

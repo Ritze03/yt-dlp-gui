@@ -13,6 +13,8 @@ package ytdlp
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 )
@@ -58,7 +60,7 @@ func (p Preset) IsAudio() bool { return p == AudioM4A || p == AudioMP3 }
 
 // Browsers are the accepted "cookies from browser" values; "none" (or "")
 // means no cookies.
-var Browsers = []string{"none", "firefox", "chromium", "brave", "chrome"}
+var Browsers = []string{"none", "firefox", "chromium", "brave", "chrome", "zen", "floorp"}
 
 // Options describes one download job.
 type Options struct {
@@ -92,7 +94,36 @@ func cookieArgs(browser string) []string {
 	if browser == "" || browser == "none" {
 		return nil
 	}
-	return []string{"--cookies-from-browser", browser}
+	return []string{"--cookies-from-browser", cookieSpec(browser)}
+}
+
+// forkRoots are the profile roots (relative to $HOME, native first, then
+// Flatpak) of the Firefox forks yt-dlp has no name for.
+var forkRoots = map[string][]string{
+	"zen":    {".zen", ".var/app/app.zen_browser.zen/.zen"},
+	"floorp": {".floorp", ".var/app/one.ablaze.floorp/.floorp"},
+}
+
+// cookieSpec maps a Browsers value to yt-dlp's BROWSER[:PROFILE] spec. zen and
+// floorp are Firefox-format, so they become "firefox:<profile root>"; yt-dlp
+// takes the newest cookies.sqlite under that root (root, root/*/, root/Profiles/*/).
+// The first existing root wins; none existing gives the native one, so yt-dlp
+// reports its own "could not find firefox cookies database" error.
+func cookieSpec(browser string) string {
+	rels, ok := forkRoots[browser]
+	if !ok {
+		return browser
+	}
+	// ponytail: no $HOME means a relative root, which yt-dlp will fail on clearly.
+	home, _ := os.UserHomeDir()
+	root := filepath.Join(home, rels[0])
+	for _, r := range rels {
+		if st, err := os.Stat(filepath.Join(home, r)); err == nil && st.IsDir() {
+			root = filepath.Join(home, r)
+			break
+		}
+	}
+	return "firefox:" + root
 }
 
 // Args builds the yt-dlp argument list for a download (without the binary

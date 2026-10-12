@@ -6,8 +6,23 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 )
+
+// zen and floorp reach the probe call as firefox:<profile root>.
+func TestProbeURLForkCookies(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	fakeBin(t, `echo "ERROR: $*" >&2; exit 1`) // echoes its argv back as the error
+	for b, root := range map[string]string{"zen": ".zen", "floorp": ".floorp"} {
+		_, err := ProbeURL(context.Background(), "https://youtu.be/x", b)
+		var ye *Error
+		if !errors.As(err, &ye) || !strings.Contains(ye.LastError, "--cookies-from-browser firefox:"+filepath.Join(home, root)+" ") {
+			t.Errorf("%s: %v", b, err)
+		}
+	}
+}
 
 func fixture(t *testing.T, name string) []byte {
 	t.Helper()

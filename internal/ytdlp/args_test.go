@@ -1,6 +1,8 @@
 package ytdlp
 
 import (
+	"os"
+	"path/filepath"
 	"reflect"
 	"slices"
 	"strings"
@@ -112,6 +114,50 @@ func TestArgsCookies(t *testing.T) {
 	a := Args(Options{URL: "u", Folder: "/d", Cookies: "firefox"})
 	if i := slices.Index(a, "--cookies-from-browser"); i < 0 || a[i+1] != "firefox" {
 		t.Errorf("download args: %q", a)
+	}
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	for b, root := range map[string]string{"zen": ".zen", "floorp": ".floorp"} {
+		a := Args(Options{URL: "u", Folder: "/d", Cookies: b})
+		if i := slices.Index(a, "--cookies-from-browser"); i < 0 || a[i+1] != "firefox:"+filepath.Join(home, root) {
+			t.Errorf("%s download args: %q", b, a)
+		}
+	}
+}
+
+func TestCookieSpec(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	for _, c := range []struct{ browser, native, flatpak string }{
+		{"zen", ".zen", ".var/app/app.zen_browser.zen/.zen"},
+		{"floorp", ".floorp", ".var/app/one.ablaze.floorp/.floorp"},
+	} {
+		want := func(rel string) string { return "firefox:" + filepath.Join(home, rel) }
+		if got := cookieSpec(c.browser); got != want(c.native) { // neither: native default
+			t.Errorf("%s none present: %q", c.browser, got)
+		}
+		if err := os.MkdirAll(filepath.Join(home, c.flatpak), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if got := cookieSpec(c.browser); got != want(c.flatpak) {
+			t.Errorf("%s flatpak only: %q", c.browser, got)
+		}
+		if err := os.MkdirAll(filepath.Join(home, c.native), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if got := cookieSpec(c.browser); got != want(c.native) {
+			t.Errorf("%s both: %q", c.browser, got)
+		}
+	}
+	for _, b := range []string{"firefox", "chromium", "brave", "chrome"} {
+		if got := cookieSpec(b); got != b {
+			t.Errorf("%s: %q", b, got)
+		}
+	}
+	for _, b := range []string{"", "none"} {
+		if cookieArgs(b) != nil {
+			t.Errorf("%q must give no flag", b)
+		}
 	}
 }
 

@@ -12,6 +12,7 @@ import (
 
 	"yt-dlp-gui/internal/queue"
 	"yt-dlp-gui/internal/settings"
+	"yt-dlp-gui/internal/ui/theme"
 	"yt-dlp-gui/internal/ytdlp"
 )
 
@@ -155,5 +156,21 @@ func TestWinProbeRouting(t *testing.T) {
 	a.probe("notaurl", s, 0)
 	if jobs := a.q.Jobs(); len(jobs) != 1 || jobs[0].Title != "notaurl" || jobs[0].Opts.URL != "notaurl" || a.probeErr != "" || a.clearURL != "notaurl" {
 		t.Errorf("failure: jobs=%+v err=%q", jobs, a.probeErr)
+	}
+}
+
+func TestWinApplySettingsTheme(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	a := winApp()
+	a.th = theme.New(true)
+	a.s = settings.Default()
+	next := a.s
+	next.Dark, next.Parallel = false, 2
+	a.applySettings(next)
+	if a.th.Dark || a.s.Dark {
+		t.Errorf("after save Dark=false: th=%v s=%v", a.th.Dark, a.s.Dark)
+	}
+	if got, _ := settings.Load(); got.Dark {
+		t.Errorf("persisted Dark = true, want false")
 	}
 }

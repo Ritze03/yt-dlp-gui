@@ -20,36 +20,39 @@ func TestSettingsFromFields(t *testing.T) {
 	dir := t.TempDir()
 	cur := settings.Settings{Dark: true, Folder: "/old", Parallel: 1, Cookies: "none", SubLang: "en"}
 
-	got, err := settingsFromFields(cur, "  "+dir+" ", 2, 3, true, " de,fr ")
+	got, err := settingsFromFields(cur, "  "+dir+" ", 1, 2, 3, true, " de,fr ")
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := settings.Settings{Dark: true, Folder: dir, Parallel: 3, Cookies: "brave", Subs: true, SubLang: "de,fr"}
+	want := settings.Settings{Dark: false, Folder: dir, Parallel: 3, Cookies: "brave", Subs: true, SubLang: "de,fr"}
 	if got != want {
 		t.Errorf("got %+v, want %+v", got, want)
 	}
 
-	if got, _ := settingsFromFields(settings.Settings{Dark: false}, dir, 0, 0, false, ""); got.Dark || got.SubLang != "en" || got.Cookies != "none" || got.Parallel != 1 {
-		t.Errorf("empty lang / Dark carry: %+v", got)
+	if got, _ := settingsFromFields(settings.Settings{Dark: false}, dir, 9, 0, 0, false, ""); got.Dark || got.SubLang != "en" || got.Cookies != "none" || got.Parallel != 1 {
+		t.Errorf("empty lang / invalid theme keeps cur: %+v", got)
 	}
-	if got, _ := settingsFromFields(cur, dir, 9, 9, false, ""); got.Parallel != 4 || got.Cookies != "none" {
+	if got, _ := settingsFromFields(cur, dir, 9, 9, 9, false, ""); got.Parallel != 4 || got.Cookies != "none" || !got.Dark {
 		t.Errorf("out-of-range indices: %+v", got)
 	}
 
-	if _, err := settingsFromFields(cur, filepath.Join(dir, "nope"), 0, 0, false, "en"); err == nil {
+	if got, _ := settingsFromFields(settings.Settings{}, dir, 0, 0, 0, false, ""); !got.Dark {
+		t.Errorf("themeIdx 0 = %+v, want Dark", got)
+	}
+	if _, err := settingsFromFields(cur, filepath.Join(dir, "nope"), 0, 0, 0, false, "en"); err == nil {
 		t.Error("missing folder accepted")
 	}
 	f := filepath.Join(dir, "file")
 	if err := os.WriteFile(f, nil, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := settingsFromFields(cur, f, 0, 0, false, "en"); err == nil {
+	if _, err := settingsFromFields(cur, f, 0, 0, 0, false, "en"); err == nil {
 		t.Error("file accepted as folder")
 	}
-	if _, err := settingsFromFields(cur, "", 0, 0, false, "en"); err == nil {
+	if _, err := settingsFromFields(cur, "", 0, 0, 0, false, "en"); err == nil {
 		t.Error("empty folder accepted")
 	}
-	if _, err := settingsFromFields(cur, dir, 0, 0, true, "en de"); err == nil {
+	if _, err := settingsFromFields(cur, dir, 0, 0, 0, true, "en de"); err == nil {
 		t.Error("lang with space accepted")
 	}
 }
@@ -60,11 +63,11 @@ func TestSettingsFromFieldsTilde(t *testing.T) {
 	if err := os.Mkdir(filepath.Join(home, "dl"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	got, err := settingsFromFields(settings.Default(), "~/dl", 0, 0, false, "en")
+	got, err := settingsFromFields(settings.Default(), "~/dl", 0, 0, 0, false, "en")
 	if err != nil || got.Folder != filepath.Join(home, "dl") {
 		t.Errorf("~/dl: %q, %v", got.Folder, err)
 	}
-	if got, err := settingsFromFields(settings.Default(), "~", 0, 0, false, "en"); err != nil || got.Folder != home {
+	if got, err := settingsFromFields(settings.Default(), "~", 0, 0, 0, false, "en"); err != nil || got.Folder != home {
 		t.Errorf("~: %q, %v", got.Folder, err)
 	}
 }
@@ -76,6 +79,13 @@ func TestSettingsPanelOpen(t *testing.T) {
 	if p.folder.Text() != "/some/dir" || p.lang.Text() != "de" || p.parallel.Selected() != 3 || p.ckies.Selected() != 1 || !p.subs.Value || p.err != "" {
 		t.Errorf("open: folder=%q lang=%q par=%d cookies=%d subs=%v err=%q",
 			p.folder.Text(), p.lang.Text(), p.parallel.Selected(), p.ckies.Selected(), p.subs.Value, p.err)
+	}
+	if p.themeDD.Selected() != 1 {
+		t.Errorf("open Dark=false: theme=%d, want 1 (Light)", p.themeDD.Selected())
+	}
+	p.open(settings.Settings{Dark: true})
+	if p.themeDD.Selected() != 0 {
+		t.Errorf("open Dark=true: theme=%d, want 0 (Dark)", p.themeDD.Selected())
 	}
 	p.open(settings.Settings{Parallel: 0, Cookies: "bogus"}) // unnormalised input must not panic
 	if p.parallel.Selected() != 0 || p.ckies.Selected() != 0 || p.subs.Value {

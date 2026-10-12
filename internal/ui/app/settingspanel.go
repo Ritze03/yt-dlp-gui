@@ -19,18 +19,20 @@ import (
 // settingsPanel is the settings card (D7, D17, D18, D27). Open it with open(),
 // then call layout every frame while it is visible.
 type settingsPanel struct {
-	folder, lang    widget.Editor
-	parallel, ckies *theme.Dropdown
-	subs            widget.Bool
-	save, cancel    widget.Clickable
-	closeBtn        widget.Clickable
-	err             string // inline folder/language error, "" when none
+	folder, lang             widget.Editor
+	themeDD, parallel, ckies *theme.Dropdown
+	subs                     widget.Bool
+	save, cancel             widget.Clickable
+	closeBtn                 widget.Clickable
+	err                      string // inline folder/language error, "" when none
 }
 
 func newSettingsPanel() *settingsPanel {
 	p := &settingsPanel{}
 	p.folder.SingleLine, p.folder.Submit = true, true
 	p.lang.SingleLine, p.lang.Submit = true, true
+	p.themeDD = theme.NewDropdown([]string{"Dark", "Light"})
+	p.themeDD.Width = 120
 	p.parallel = theme.NewDropdown([]string{"1", "2", "3", "4"})
 	p.parallel.Width = 90
 	labels := make([]string, len(ytdlp.Browsers))
@@ -46,6 +48,7 @@ func newSettingsPanel() *settingsPanel {
 func (p *settingsPanel) open(s settings.Settings) {
 	p.folder.SetText(s.Folder)
 	p.lang.SetText(s.SubLang)
+	p.themeDD.SetSelected(map[bool]int{true: 0, false: 1}[s.Dark])
 	p.parallel.SetSelected(min(max(s.Parallel, 1), 4) - 1)
 	p.ckies.SetSelected(max(slices.Index(ytdlp.Browsers, s.Cookies), 0))
 	p.subs.Value = s.Subs
@@ -53,10 +56,11 @@ func (p *settingsPanel) open(s settings.Settings) {
 }
 
 // settingsFromFields validates the raw field values and builds the new
-// settings. Dark is carried over from cur. The folder is trimmed, a leading
+// settings. themeIdx 0 is Dark, 1 is Light; any other value keeps
+// cur.Dark. The folder is trimmed, a leading
 // "~" expanded to the home directory, and checked with settings.ValidFolder;
 // an empty language means "en", whitespace inside it is rejected.
-func settingsFromFields(cur settings.Settings, folder string, parallelIdx, cookiesIdx int, subs bool, lang string) (settings.Settings, error) {
+func settingsFromFields(cur settings.Settings, folder string, themeIdx, parallelIdx, cookiesIdx int, subs bool, lang string) (settings.Settings, error) {
 	folder = strings.TrimSpace(folder)
 	if folder == "~" || strings.HasPrefix(folder, "~/") {
 		home, err := os.UserHomeDir()
@@ -77,6 +81,9 @@ func settingsFromFields(cur settings.Settings, folder string, parallelIdx, cooki
 	}
 	if cookiesIdx < 0 || cookiesIdx >= len(ytdlp.Browsers) {
 		cookiesIdx = 0
+	}
+	if themeIdx == 0 || themeIdx == 1 {
+		cur.Dark = themeIdx == 0
 	}
 	cur.Folder = folder
 	cur.Parallel = min(max(parallelIdx+1, 1), 4)
@@ -104,7 +111,7 @@ func (p *settingsPanel) layout(gtx theme.C, t *theme.Theme, cur settings.Setting
 		}
 	}
 	if submit {
-		n, err := settingsFromFields(cur, p.folder.Text(), p.parallel.Selected(), p.ckies.Selected(), p.subs.Value, p.lang.Text())
+		n, err := settingsFromFields(cur, p.folder.Text(), p.themeDD.Selected(), p.parallel.Selected(), p.ckies.Selected(), p.subs.Value, p.lang.Text())
 		if err != nil {
 			p.err = err.Error()
 		} else {
@@ -151,6 +158,8 @@ func (p *settingsPanel) layout(gtx theme.C, t *theme.Theme, cur settings.Setting
 					}),
 				)
 			})),
+			gap,
+			layout.Rigid(label("Theme", func(gtx theme.C) theme.D { return p.themeDD.Layout(gtx, t) })),
 			gap,
 			layout.Rigid(func(gtx theme.C) theme.D {
 				return layout.Flex{Alignment: layout.Start}.Layout(gtx,

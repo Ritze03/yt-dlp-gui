@@ -5,6 +5,7 @@ package app
 import (
 	"context"
 	"errors"
+	"image"
 	"log"
 	"slices"
 	"strconv"
@@ -320,10 +321,15 @@ func (a *App) queueList(gtx theme.C) theme.D {
 			return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
 				layout.Flexed(1, a.th.Muted("Queue · "+strconv.Itoa(len(jobs))).Layout),
 				layout.Rigid(func(gtx theme.C) theme.D {
+					// ponytail: with nothing to clear, measure the button but drop its ops, so the bar keeps its height and the button takes no input.
+					m := op.Record(gtx.Ops)
+					d := a.th.Button(&a.clearBt, "Clear completed").Layout(gtx)
+					c := m.Stop()
 					if !done {
-						return theme.D{}
+						return theme.D{Size: image.Pt(0, d.Size.Y)}
 					}
-					return a.th.Button(&a.clearBt, "Clear completed").Layout(gtx)
+					c.Add(gtx.Ops)
+					return d
 				}),
 			)
 		})

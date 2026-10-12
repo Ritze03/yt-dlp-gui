@@ -2,6 +2,8 @@ package app
 
 import (
 	"fmt"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -15,23 +17,80 @@ import (
 	"yt-dlp-gui/internal/ytdlp"
 )
 
+// rowAction is one button in a row's title bar.
+type rowAction int
+
+const (
+	rowCancel rowAction = iota
+	rowOpen
+	rowShow
+	rowRetry
+	rowRemove
+	rowNActions
+)
+
+// rowTail is how many stderr lines the expanded "Details" block shows.
+const rowTail = 12
+
+// rowActions lists the buttons a row in state s offers, left to right.
+func rowActions(s queue.State) []rowAction {
+	switch s {
+	case queue.Done:
+		return []rowAction{rowOpen, rowShow, rowRemove}
+	case queue.Failed, queue.Cancelled:
+		return []rowAction{rowRetry, rowRemove}
+	}
+	return []rowAction{rowCancel}
+}
+
+// rowOpenCmd opens the file with the desktop's default app. The path is its
+// own argv element, so no shell ever sees it.
+func rowOpenCmd(path string) []string { return []string{"xdg-open", path} }
+
+// rowShowCmd opens the file's folder. ponytail: xdg-open can't select the file
+// (that needs a file-manager-specific D-Bus call), so it just opens the directory.
+func rowShowCmd(path string) []string { return []string{"xdg-open", filepath.Dir(path)} }
+
+// rowRun starts argv detached and reaps it. ponytail: a missing xdg-open is ignored.
+func rowRun(argv []string) {
+	if cmd := exec.Command(argv[0], argv[1:]...); cmd.Start() == nil {
+		go cmd.Wait()
+	}
+}
+
 // rowState is the per-job widget state, kept in App.rows keyed by job ID.
 type rowState struct {
-	btn     widget.Clickable // cancel (queued/running) or remove (finished)
-	lastPct float32          // last known percent, shown while yt-dlp reports -1
+	btns     [rowNActions]widget.Clickable
+	details  widget.Clickable // toggles the stderr tail of a failed row
+	expanded bool
+	lastPct  float32 // last known percent, shown while yt-dlp reports -1
 }
 
 func active(s queue.State) bool { return s == queue.Queued || s == queue.Running }
 
-// layout draws one queue row and handles its button. hint is the (already
+// layout draws one queue row and handles its buttons. hint is the (already
 // resolved) hint text for j.Err, "" when there is none.
 func (r *rowState) layout(gtx theme.C, t *theme.Theme, q *queue.Queue, j queue.Job, hint string) theme.D {
-	if r.btn.Clicked(gtx) {
-		if active(j.State) {
-			q.Cancel(j.ID)
-		} else {
-			q.Remove(j.ID)
+	acts := rowActions(j.State)
+	for _, a := range acts {
+		if !r.btns[a].Clicked(gtx) {
+			continue
 		}
+		switch a {
+		case rowCancel:
+			q.Cancel(j.ID)
+		case rowRetry:
+			q.Retry(j.ID)
+		case rowRemove:
+			q.Remove(j.ID)
+		case rowOpen:
+			rowRun(rowOpenCmd(j.Path))
+		case rowShow:
+			rowRun(rowShowCmd(j.Path))
+		}
+	}
+	if r.details.Clicked(gtx) {
+		r.expanded = !r.expanded
 	}
 	if p := j.Progress.Percent; p >= 0 {
 		r.lastPct = float32(p)
@@ -44,10 +103,6 @@ func (r *rowState) layout(gtx theme.C, t *theme.Theme, q *queue.Queue, j queue.J
 		pb.Progress, pb.Color = 1, t.P.Success
 	case queue.Failed:
 		pb.Color = t.P.Error
-	}
-	ic, desc := theme.IcDelete, "Remove"
-	if active(j.State) {
-		ic, desc = theme.IcClose, "Cancel"
 	}
 
 	return t.Card(gtx, func(gtx theme.C) theme.D {
@@ -62,8 +117,18 @@ func (r *rowState) layout(gtx theme.C, t *theme.Theme, q *queue.Queue, j queue.J
 					}),
 					layout.Rigid(layout.Spacer{Width: 8}.Layout),
 					layout.Rigid(func(gtx theme.C) theme.D {
-						// negative inset cancels the button's own padding so the icon lines up with the card edge
-						return layout.Inset{Top: -6, Bottom: -6, Right: -8}.Layout(gtx, t.IconButton(&r.btn, ic, desc).Layout)
+						var btns []layout.FlexChild
+						for _, a := range acts {
+							if (a == rowOpen || a == rowShow) && j.Path == "" {
+								continue
+							}
+							ic, desc := rowIcon(a)
+							btns = append(btns, layout.Rigid(t.IconButton(&r.btns[a], ic, desc).Layout))
+						}
+						// negative inset cancels the button's own padding so the icons line up with the card edge
+						return layout.Inset{Top: -6, Bottom: -6, Right: -8}.Layout(gtx, func(gtx theme.C) theme.D {
+							return layout.Flex{Alignment: layout.Middle}.Layout(gtx, btns...)
+						})
 					}),
 				)
 			}),
@@ -81,18 +146,63 @@ func (r *rowState) layout(gtx theme.C, t *theme.Theme, q *queue.Queue, j queue.J
 					return theme.D{}
 				}
 				return layout.Inset{Top: 6}.Layout(gtx, func(gtx theme.C) theme.D {
-					e := t.Muted(j.Err.Error())
-					e.Color = t.P.Error
-					lines := []layout.FlexChild{layout.Rigid(e.Layout)}
-					if hint != "" {
-						lines = append(lines, layout.Rigid(t.Muted(hint).Layout))
-					}
-					// phase B (row.go): expandable stderr tail and Retry button go here.
-					return layout.Flex{Axis: layout.Vertical}.Layout(gtx, lines...)
+					return r.failure(gtx, t, j.Err, hint)
 				})
 			}),
 		)
 	})
+}
+
+func rowIcon(a rowAction) (*widget.Icon, string) {
+	switch a {
+	case rowOpen:
+		return theme.IcOpen, "Open file"
+	case rowShow:
+		return theme.IcFolder, "Show in folder"
+	case rowRetry:
+		return theme.IcRetry, "Retry"
+	case rowRemove:
+		return theme.IcDelete, "Remove"
+	}
+	return theme.IcClose, "Cancel"
+}
+
+// failure is the error line, hint and the expandable stderr tail of a failed row.
+func (r *rowState) failure(gtx theme.C, t *theme.Theme, e *ytdlp.Error, hint string) theme.D {
+	msg := t.Muted(e.Error())
+	msg.Color = t.P.Error
+	msg.MaxLines = 2
+	kids := []layout.FlexChild{layout.Rigid(msg.Layout)}
+	if hint != "" {
+		kids = append(kids, layout.Rigid(t.Muted(hint).Layout))
+	}
+	if len(e.StderrTail) > 0 {
+		ic := theme.IcExpand
+		if r.expanded {
+			ic = theme.IcCollapse
+		}
+		toggle := func(gtx theme.C) theme.D {
+			return layout.Flex{}.Layout(gtx, layout.Rigid(func(gtx theme.C) theme.D {
+				return material.Clickable(gtx, &r.details, func(gtx theme.C) theme.D {
+					return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
+						layout.Rigid(func(gtx theme.C) theme.D { return theme.Icon(gtx, ic, 18, t.P.Muted) }),
+						layout.Rigid(layout.Spacer{Width: 4}.Layout),
+						layout.Rigid(t.Muted("Details").Layout),
+					)
+				})
+			}))
+		}
+		kids = append(kids, layout.Rigid(layout.Spacer{Height: 4}.Layout), layout.Rigid(toggle))
+		if r.expanded {
+			tail := e.StderrTail
+			if len(tail) > rowTail {
+				tail = tail[len(tail)-rowTail:]
+			}
+			// ponytail: no monospace face is embedded, so the tail is plain muted text.
+			kids = append(kids, layout.Rigid(layout.Spacer{Height: 4}.Layout), layout.Rigid(t.Muted(strings.Join(tail, "\n")).Layout))
+		}
+	}
+	return layout.Flex{Axis: layout.Vertical}.Layout(gtx, kids...)
 }
 
 // stateText is the left-hand status line: "Downloading audio · 42%".

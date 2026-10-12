@@ -5,7 +5,6 @@ package app
 import (
 	"context"
 	"errors"
-	"image"
 	"log"
 	"slices"
 	"strconv"
@@ -42,14 +41,15 @@ type App struct {
 	q       *queue.Queue
 	presets []ytdlp.Preset
 
-	url     widget.Editor
-	preset  *theme.Dropdown
-	addBtn  widget.Clickable
-	gearBt  widget.Clickable
-	clearBt widget.Clickable // "Clear completed" above the queue
-	list    widget.List
-	rows    map[int]*rowState // by job ID, pruned every frame
-	focused bool              // URL field focused once at startup
+	url         widget.Editor
+	preset      *theme.Dropdown
+	addBtn      widget.Clickable
+	gearBt      widget.Clickable
+	clearBt     widget.Clickable // "Clear completed" above the queue
+	cancelAllBt widget.Clickable // "Cancel all" next to it
+	list        widget.List
+	rows        map[int]*rowState // by job ID, pruned every frame
+	focused     bool              // URL field focused once at startup
 
 	// The settings modal is drawn over the page; the picker panel sits between the status line and the queue.
 	settings *settingsPanel
@@ -292,11 +292,41 @@ func (a *App) status(gtx theme.C) theme.D {
 	return layout.Inset{Top: 10, Left: pad + 4, Right: pad}.Layout(gtx, l.Layout)
 }
 
+// queueBarState says which queue-bar buttons would do something.
+func queueBarState(jobs []queue.Job) (canCancel, canClear bool) {
+	for _, j := range jobs {
+		switch j.State {
+		case queue.Queued, queue.Running:
+			canCancel = true
+		case queue.Done:
+			canClear = true
+		}
+	}
+	return
+}
+
+// barButton is a quiet button that is greyed out and inert when !on.
+func (a *App) barButton(c *widget.Clickable, txt string, on bool) layout.Widget {
+	return func(gtx theme.C) theme.D {
+		b := a.th.Button(c, txt)
+		if !on {
+			gtx = gtx.Disabled() // the widget gets no input events and draws dimmed
+			// ponytail: Gio's dimming of the Track fill is faint, so only the text is muted explicitly.
+			b.Color = a.th.P.Muted
+		}
+		return b.Layout(gtx)
+	}
+}
+
 func (a *App) queueList(gtx theme.C) theme.D {
-	if a.clearBt.Clicked(gtx) {
+	jobs := a.q.Jobs()
+	canCancel, canClear := queueBarState(jobs)
+	if a.clearBt.Clicked(gtx) && canClear {
 		a.q.ClearDone()
 	}
-	jobs := a.q.Jobs()
+	if a.cancelAllBt.Clicked(gtx) && canCancel {
+		a.q.CancelAll()
+	}
 	live := make(map[int]bool, len(jobs))
 	for _, j := range jobs {
 		live[j.ID] = true
@@ -312,7 +342,6 @@ func (a *App) queueList(gtx theme.C) theme.D {
 	if len(jobs) == 0 {
 		return layout.Center.Layout(gtx, a.th.Muted("No downloads yet — paste a link above.").Layout)
 	}
-	done := slices.ContainsFunc(jobs, func(j queue.Job) bool { return j.State == queue.Done })
 	// The bar is outside the scrolling list, so rows scroll away under its bottom
 	// edge (the list clips them) and never run flush against the input area above.
 	bar := func(gtx theme.C) theme.D {
@@ -320,17 +349,9 @@ func (a *App) queueList(gtx theme.C) theme.D {
 			gtx.Constraints.Min.X = gtx.Constraints.Max.X // so the button sits right-aligned
 			return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
 				layout.Flexed(1, a.th.Muted("Queue · "+strconv.Itoa(len(jobs))).Layout),
-				layout.Rigid(func(gtx theme.C) theme.D {
-					// ponytail: with nothing to clear, measure the button but drop its ops, so the bar keeps its height and the button takes no input.
-					m := op.Record(gtx.Ops)
-					d := a.th.Button(&a.clearBt, "Clear completed").Layout(gtx)
-					c := m.Stop()
-					if !done {
-						return theme.D{Size: image.Pt(0, d.Size.Y)}
-					}
-					c.Add(gtx.Ops)
-					return d
-				}),
+				layout.Rigid(a.barButton(&a.cancelAllBt, "Cancel all", canCancel)),
+				layout.Rigid(layout.Spacer{Width: 8}.Layout),
+				layout.Rigid(a.barButton(&a.clearBt, "Clear completed", canClear)),
 			)
 		})
 	}

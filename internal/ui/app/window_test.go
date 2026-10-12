@@ -278,3 +278,29 @@ func TestWinApplySettingsTheme(t *testing.T) {
 		t.Errorf("persisted Dark = true, want false")
 	}
 }
+
+func TestQueueBarState(t *testing.T) {
+	j := func(ss ...queue.State) (js []queue.Job) {
+		for _, s := range ss {
+			js = append(js, queue.Job{State: s})
+		}
+		return
+	}
+	for _, c := range []struct {
+		name          string
+		jobs          []queue.Job
+		cancel, clear bool
+	}{
+		{"empty", nil, false, false},
+		{"queued", j(queue.Queued), true, false},
+		{"running", j(queue.Running), true, false},
+		{"done", j(queue.Done), false, true},
+		{"failed", j(queue.Failed), false, false},
+		{"cancelled", j(queue.Cancelled), false, false},
+		{"mixed", j(queue.Done, queue.Running, queue.Failed), true, true},
+	} {
+		if cc, cl := queueBarState(c.jobs); cc != c.cancel || cl != c.clear {
+			t.Errorf("%s: got cancel=%v clear=%v, want %v %v", c.name, cc, cl, c.cancel, c.clear)
+		}
+	}
+}

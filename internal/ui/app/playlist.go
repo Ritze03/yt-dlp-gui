@@ -83,25 +83,23 @@ func (pp *playlistPicker) layout(gtx theme.C, t *theme.Theme) (d theme.D, queue,
 
 	gtx.Constraints.Max.Y = gtx.Constraints.Max.Y * 6 / 10
 	d = t.Card(gtx, func(gtx theme.C) theme.D {
-		// The footer is measured first so the list can take exactly the height left over.
+		// Header and footer are measured first so the list gets exactly the height
+		// left over (and shrinks to fit a short list); replaying them keeps their clicks.
+		// ponytail: record/replay instead of a Flexed list, which would always fill the cap.
 		rec := op.Record(gtx.Ops)
+		hd := pp.header(gtx, t, n)
+		header := rec.Stop()
+		rec = op.Record(gtx.Ops)
 		fd := pp.footer(gtx, t, n)
 		footer := rec.Stop()
 		const gap = 12
-		listMax := gtx.Constraints.Max.Y - fd.Size.Y - gtx.Dp(gap)
+		listMax := gtx.Constraints.Max.Y - hd.Size.Y - fd.Size.Y - gtx.Dp(gap)
 
 		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-			layout.Rigid(t.Title(pp.title).Layout),
-			layout.Rigid(layout.Spacer{Height: 4}.Layout),
 			layout.Rigid(func(gtx theme.C) theme.D {
-				return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
-					layout.Flexed(1, t.Muted(fmt.Sprintf("%d of %d selected", n, len(pp.entries))).Layout),
-					layout.Rigid(t.Button(&pp.all, "Select all").Layout),
-					layout.Rigid(layout.Spacer{Width: 8}.Layout),
-					layout.Rigid(t.Button(&pp.none, "Select none").Layout),
-				)
+				header.Add(gtx.Ops)
+				return hd
 			}),
-			layout.Rigid(layout.Spacer{Height: 8}.Layout),
 			layout.Rigid(func(gtx theme.C) theme.D {
 				gtx.Constraints.Max.Y = max(listMax, 0)
 				return material.List(t.Theme, &pp.list).Layout(gtx, len(pp.entries), func(gtx theme.C, i int) theme.D {
@@ -126,6 +124,23 @@ func (pp *playlistPicker) row(gtx theme.C, t *theme.Theme, i int) theme.D {
 		layout.Flexed(1, material.CheckBox(t.Theme, &pp.on[i], fmt.Sprintf("%d. %s", e.Index, e.Title)).Layout),
 		layout.Rigid(layout.Spacer{Width: 8}.Layout),
 		layout.Rigid(t.Muted(playlistDur(e.Duration)).Layout),
+	)
+}
+
+// header is the title, the "N of M selected" row with Select all / none, and the gap above the list.
+func (pp *playlistPicker) header(gtx theme.C, t *theme.Theme, n int) theme.D {
+	return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+		layout.Rigid(t.Title(pp.title).Layout),
+		layout.Rigid(layout.Spacer{Height: 4}.Layout),
+		layout.Rigid(func(gtx theme.C) theme.D {
+			return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
+				layout.Flexed(1, t.Muted(fmt.Sprintf("%d of %d selected", n, len(pp.entries))).Layout),
+				layout.Rigid(t.Button(&pp.all, "Select all").Layout),
+				layout.Rigid(layout.Spacer{Width: 8}.Layout),
+				layout.Rigid(t.Button(&pp.none, "Select none").Layout),
+			)
+		}),
+		layout.Rigid(layout.Spacer{Height: 8}.Layout),
 	)
 }
 

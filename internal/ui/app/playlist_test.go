@@ -9,6 +9,9 @@ import (
 	"testing"
 	"time"
 
+	"gioui.org/f32"
+	"gioui.org/io/input"
+	"gioui.org/io/pointer"
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/unit"
@@ -150,5 +153,58 @@ func TestPlaylistLayout(t *testing.T) {
 	pp.setAll(false)
 	if d, _, _ := frame(); d.Size.Y == 0 {
 		t.Error("empty selection collapsed the card")
+	}
+}
+
+// Regression (QC H1): the footer must sit inside the card and be clickable at
+// every window height, for short and long lists. A press+release at the Queue
+// button's spot (bottom-right of the card, inside the 16dp padding) must queue.
+func TestPlaylistFooterInsideCardAndClickable(t *testing.T) {
+	th := theme.New(true)
+	for _, h := range []int{520, 750, 1000} {
+		for _, n := range []int{3, 205} {
+			t.Run(fmt.Sprintf("h%d_n%d", h, n), func(t *testing.T) {
+				p := &ytdlp.Probe{Title: "PL"}
+				for i := range n {
+					p.Entries = append(p.Entries, ytdlp.Entry{ID: fmt.Sprint(i), Title: "Entry", Index: i + 1, Duration: 61})
+				}
+				pp := newPlaylistPicker(p)
+				var r input.Router
+				gtx := layout.Context{
+					Ops:         new(op.Ops),
+					Metric:      unit.Metric{PxPerDp: 1, PxPerSp: 1},
+					Constraints: layout.Constraints{Max: image.Pt(900, h)},
+					Source:      r.Source(),
+				}
+				frame := func() (theme.D, bool, bool) {
+					gtx.Reset()
+					d, q, c := pp.layout(gtx, th)
+					r.Frame(gtx.Ops)
+					return d, q, c
+				}
+				d, _, _ := frame()
+				if d.Size.Y > h*6/10 {
+					t.Fatalf("card height %d > 60%% of %d", d.Size.Y, h)
+				}
+				if n == 3 && d.Size.Y >= h*6/10 {
+					t.Errorf("short list should shrink the card, got %d of max %d", d.Size.Y, h*6/10)
+				}
+				if n == 205 && d.Size.Y < h*6/10-2 {
+					t.Errorf("long list should fill the 60%% cap, got %d of %d", d.Size.Y, h*6/10)
+				}
+				pos := f32.Pt(float32(d.Size.X-16-10), float32(d.Size.Y-16-10))
+				r.Queue(
+					pointer.Event{Kind: pointer.Move, Source: pointer.Mouse, Position: pos},
+					pointer.Event{Kind: pointer.Press, Source: pointer.Mouse, Buttons: pointer.ButtonPrimary, Position: pos},
+					pointer.Event{Kind: pointer.Release, Source: pointer.Mouse, Buttons: pointer.ButtonPrimary, Position: pos},
+				)
+				if _, q, _ := frame(); !q {
+					t.Errorf("click at %v (card %v) did not hit Queue: footer is outside the card or covered", pos, d.Size)
+				}
+				if got := len(pp.checked()); got != n {
+					t.Errorf("click toggled entries: %d checked, want %d", got, n)
+				}
+			})
+		}
 	}
 }

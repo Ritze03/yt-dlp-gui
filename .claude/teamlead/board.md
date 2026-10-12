@@ -4,6 +4,7 @@
 
 | ✓ | ID | Task | Agent | Owns | State | Branch |
 |:-:|:--:|------|-------|------|-------|--------|
+|   | 22 | User note: 'Cancel all' button next to 'Clear completed'; both always shown, greyed out + inert when they'd do nothing — I11 | `tl-sonnet-medium` | `internal/ui/app/window.go`, `internal/ui/app/window_test.go` | queued | — |
 
 ## Done
 

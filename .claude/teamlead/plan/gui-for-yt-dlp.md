@@ -1,7 +1,7 @@
 # GUI for yt-dlp
 
-> **Stage 5** — building phase A (I1–I6) · started 2026-10-12
-> Phase A goes on the board next; phase B follows after phase A's testing.
+> **Stage 7** — user-testing phase A (I1–I6) · started 2026-10-12
+> Phase B follows after phase A's testing.
 
 ## Goal
 A lean, good-looking personal Go + Gio desktop app for yt-dlp. Paste a URL or playlist, pick a preset or an exact format, and watch a download queue with progress, in dark or light mode.
@@ -94,14 +94,14 @@ Empty project directory (greenfield, not a git repo). Machine scout, 2026-10-12:
 
 ## Done when
 **Phase A — single-video core, both themes**
-- [ ] `go build ./...`, `go vet ./...` and `go test ./...` all pass — *verified by: agent*
-- [ ] Unit tests cover progress parsing (null `total_bytes`/`speed`/`eta`, the two-stage video+audio run), the D25 preset args, the D17/D18 flags and the three D16 error patterns — *verified by: agent*
-- [ ] Queue unit test with a fake runner: parallel=1 runs jobs strictly one after another, parallel=2 runs two at once, and Retry and Remove behave per D14 — *verified by: agent*
-- [ ] In headless sway, the app downloads `https://youtu.be/55XuQm3NZi8` with "Audio only m4a" into a temp dir; `ffprobe` shows an audio stream plus an attached cover picture — *verified by: agent*
-- [ ] In headless sway, a "Best" download of a D10 URL completes through its stages, and `ffprobe` shows video and audio streams plus embedded metadata — *verified by: agent*
-- [ ] Cancelling mid-download leaves no `yt-dlp`/`ffmpeg` process (`pgrep`), and the `.part` file remains — *verified by: agent*
-- [ ] The theme choice survives a restart (`settings.json` written and read back) — *verified by: agent*
-- [ ] `grim` screenshots of the main window in dark and light mode, saved for review — *verified by: agent*
+- [x] `go build ./...`, `go vet ./...` and `go test ./...` all pass — *verified by: agent* — ran `go build ./... && go vet ./... && go test -race -count=1 ./...; gofmt -l .` → all 5 packages ok, gofmt empty
+- [x] Unit tests cover progress parsing (null `total_bytes`/`speed`/`eta`, the two-stage video+audio run), the D25 preset args, the D17/D18 flags and the three D16 error patterns — *verified by: agent* — ran `go test -race ./internal/ytdlp/...` → TestParseProgressLine, TestTrackerRecordedBestRun, TestArgsPresets/Advanced/Cookies/Subs/EmbedAlways, TestProbeURLNestedFake, TestHint all pass
+- [x] Queue unit test with a fake runner: parallel=1 runs jobs strictly one after another, parallel=2 runs two at once, and Retry and Remove behave per D14 — *verified by: agent* — ran `go test -race ./internal/queue/...` → TestParallel1RunsOneAtATimeFIFO (max 1), TestParallel2RunsTwoAtOnce (max 2), Retry/Remove/Cancel tests pass
+- [x] In headless sway, the app downloads `https://youtu.be/55XuQm3NZi8` with "Audio only m4a" into a temp dir; `ffprobe` shows an audio stream plus an attached cover picture — *verified by: agent* — ran `ffprobe -show_entries stream=codec_type,codec_name:stream_disposition=attached_pic` on the UI download → aac audio + png attached_pic=1; all 7 D10 URLs likewise Done
+- [x] In headless sway, a "Best" download of a D10 URL completes through its stages, and `ffprobe` shows video and audio streams plus embedded metadata — *verified by: agent* — ran `ffprobe -show_streams -show_format` on Best of 55XuQm3NZi8 → av1 video + aac audio + png cover, title/artist/date tags; aIb43qCLguo showed Video→Audio→Merging→Processing→Done
+- [x] Cancelling mid-download leaves no `yt-dlp`/`ffmpeg` process (`pgrep`), and the `.part` file remains — *verified by: agent* — ran `pgrep -a yt-dlp; pgrep -a ffmpeg` after row cancel of Lv3f5sEe1Hw → empty, `.f398.mp4.part` kept; window close mid-download → no procs at T+7s
+- [x] The theme choice survives a restart (`settings.json` written and read back) — *verified by: agent* — ran `cat settings.json` after the toggle → `"dark": false`; relaunch with same XDG_CONFIG_HOME → started light
+- [x] `grim` screenshots of the main window in dark and light mode, saved for review — *verified by: agent* — ran `scripts/headless.sh shot` → `scratchpad/shots/08-queue-all-done-dark.png`, `09-queue-light-tall.png`, `12-best-stages-montage-light.png`
 - [ ] It looks stylish but restrained in both themes, and the accent works — *verified by: user*
 - [ ] Downloading your own URLs through it feels right — *verified by: user*
 

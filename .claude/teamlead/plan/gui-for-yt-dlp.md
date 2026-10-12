@@ -1,6 +1,6 @@
 # GUI for yt-dlp
 
-> **Stage 7** — user-testing phase B (incl. theme-in-settings modal, Zen/Floorp + Flatpak cookies) · started 2026-10-12
+> **Stage 5** — building approved polish: auto-captions, remembered preset, thumbnail cleanup · started 2026-10-12
 > Phase A passed agent and user testing.
 
 ## Goal

@@ -4,6 +4,8 @@
 
 | ✓ | ID | Task | Agent | Owns | State | Branch |
 |:-:|:--:|------|-------|------|-------|--------|
+|   | 17 | Approved polish: Subtitles also fetch YouTube auto-captions (--write-auto-subs); Remove of cancelled/failed rows also deletes leftover thumbnail + subtitle sidecars — I10 | `tl-sonnet-high` | `internal/ytdlp` | queued | — |
+|   | 18 | Approved polish: remember the chosen format preset (incl. Advanced…) across launches — I11 | `tl-sonnet-high` | `internal/settings`, `internal/ui/app/window.go`, `internal/ui/app/window_test.go` | queued | — |
 
 ## Done
 

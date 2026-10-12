@@ -1,0 +1,13 @@
+{
+ "_type": "playlist",
+ "id": "PLfix001",
+ "title": "Rock/Pop: Best 100%",
+ "webpage_url": "https://www.youtube.com/playlist?list=PLfix001",
+ "entries": [
+  {"_type": "url", "ie_key": "Youtube", "id": "aaaaaaaaaaa", "url": "https://www.youtube.com/watch?v=aaaaaaaaaaa", "title": "First song", "duration": 125.0},
+  {"_type": "url", "ie_key": "Youtube", "id": "bbbbbbbbbbb", "url": "https://www.youtube.com/watch?v=bbbbbbbbbbb", "title": "Second song", "duration": 3725.0},
+  {"_type": "url", "ie_key": "Youtube", "id": "ccccccccccc", "url": "https://www.youtube.com/watch?v=ccccccccccc", "title": "Third song", "duration": 215.0},
+  {"_type": "url", "ie_key": "Youtube", "id": "ddddddddddd", "url": "https://www.youtube.com/watch?v=ddddddddddd", "title": "Fourth song", "duration": 60.0},
+  {"_type": "url", "ie_key": "Youtube", "id": "eeeeeeeeeee", "url": "https://www.youtube.com/watch?v=eeeeeeeeeee", "title": "Fifth song", "duration": null}
+ ]
+}

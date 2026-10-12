@@ -8,7 +8,9 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	"yt-dlp-gui/internal/queue"
 	"yt-dlp-gui/internal/settings"
@@ -207,6 +209,58 @@ func TestWinApplySettingsKeepsPreset(t *testing.T) {
 	if got, _ := settings.Load(); a.s.Preset != "mp3" || got.Preset != "mp3" {
 		t.Errorf("Preset after settings Save: app=%q file=%q, want mp3", a.s.Preset, got.Preset)
 	}
+}
+
+func TestWinRetryUsesCurrentSettings(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	var mu sync.Mutex
+	var seen []ytdlp.Options
+	run := func(_ context.Context, o ytdlp.Options, _ func(ytdlp.Progress)) (ytdlp.Result, error) {
+		mu.Lock()
+		defer mu.Unlock()
+		seen = append(seen, o)
+		if len(seen) == 1 {
+			return ytdlp.Result{}, &ytdlp.Error{LastError: "Sign in to confirm you're not a bot"}
+		}
+		return ytdlp.Result{}, nil
+	}
+	a := &App{q: queue.New(run, 1, nil), th: theme.New(true), s: settings.Default()}
+	defer a.q.Close()
+	a.q.SetRetryHook(a.retryHook)
+	a.s.Cookies = "none"
+	o := optsFor(a.s, 3)
+	o.URL = "https://e/v"
+	id := a.q.Add("t", o)
+	waitJob(t, a.q, id, queue.Failed)
+
+	next := a.s
+	next.Cookies, next.Subs, next.SubLang = "firefox", true, "de"
+	a.applySettings(next)
+	a.q.Retry(id)
+	waitJob(t, a.q, id, queue.Done)
+
+	mu.Lock()
+	defer mu.Unlock()
+	r := seen[1]
+	if r.Cookies != "firefox" || !r.Subs || r.SubLang != "de" || r.URL != o.URL || r.Folder != o.Folder || r.Preset != o.Preset {
+		t.Errorf("retry opts = %+v, first = %+v", r, o)
+	}
+	if args := ytdlp.Args(r); !slices.Contains(args, "--cookies-from-browser") {
+		t.Errorf("retry args lack cookies: %v", args)
+	}
+}
+
+func waitJob(t *testing.T, q *queue.Queue, id int, want queue.State) {
+	t.Helper()
+	for range 500 {
+		for _, j := range q.Jobs() {
+			if j.ID == id && j.State == want {
+				return
+			}
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("job %d never reached %v: %+v", id, want, q.Jobs())
 }
 
 func TestWinApplySettingsTheme(t *testing.T) {

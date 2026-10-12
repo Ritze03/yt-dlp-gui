@@ -7,6 +7,7 @@ package queue
 import (
 	"context"
 	"errors"
+	"slices"
 	"strings"
 	"sync"
 
@@ -64,6 +65,7 @@ type Queue struct {
 	running  int // goroutines in flight, including removed rows still winding down
 	closed   bool
 	wg       sync.WaitGroup
+	onRetry  func(*ytdlp.Options) // see SetRetryHook
 }
 
 // New returns a queue. run nil means ytdlp.Download; onChange may be nil and is
@@ -178,11 +180,24 @@ func (q *Queue) CancelAll() {
 	q.changed()
 }
 
-// Retry requeues a Failed or Cancelled job with the same options; the kept
-// .part files let yt-dlp resume.
+// SetRetryHook installs fn, which Retry applies to the job's Options so a retry
+// can pick up settings changed since the job was queued (cookies, subtitles)
+// while folder, format and URL stay. fn runs under the queue lock: it must be
+// cheap and must not call back into the queue.
+func (q *Queue) SetRetryHook(fn func(*ytdlp.Options)) {
+	q.mu.Lock()
+	q.onRetry = fn
+	q.mu.Unlock()
+}
+
+// Retry requeues a Failed or Cancelled job; the kept .part files let yt-dlp
+// resume. Options are unchanged unless a retry hook adjusts them.
 func (q *Queue) Retry(id int) {
 	q.mu.Lock()
 	if j, _ := q.find(id); j != nil && (j.State == Failed || j.State == Cancelled) {
+		if q.onRetry != nil {
+			q.onRetry(&j.Opts)
+		}
 		j.State = Queued
 		j.Err = nil
 		j.Progress = ytdlp.Progress{}
@@ -214,6 +229,20 @@ func (q *Queue) Remove(id int) {
 		ytdlp.RemovePartFiles(dest) // ponytail: best effort, a leftover .part is harmless
 	}
 	q.changed()
+}
+
+// ClearDone drops every Done row (the finished files are never touched, as in
+// Remove) and returns how many it dropped.
+func (q *Queue) ClearDone() int {
+	q.mu.Lock()
+	n := len(q.jobs)
+	q.jobs = slices.DeleteFunc(q.jobs, func(j *job) bool { return j.State == Done })
+	n -= len(q.jobs)
+	q.mu.Unlock()
+	if n > 0 {
+		q.changed()
+	}
+	return n
 }
 
 // Close cancels everything and blocks until every download has returned.

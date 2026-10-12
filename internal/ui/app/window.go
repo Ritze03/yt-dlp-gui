@@ -7,6 +7,7 @@ import (
 	"errors"
 	"log"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -44,6 +45,7 @@ type App struct {
 	preset  *theme.Dropdown
 	addBtn  widget.Clickable
 	gearBt  widget.Clickable
+	clearBt widget.Clickable // "Clear completed" above the queue
 	list    widget.List
 	rows    map[int]*rowState // by job ID, pruned every frame
 	focused bool              // URL field focused once at startup
@@ -82,6 +84,7 @@ func New(w *app.Window) *App {
 		settings: newSettingsPanel(),
 	}
 	a.list.Axis = layout.Vertical
+	a.q.SetRetryHook(a.retryHook)
 	a.url.SingleLine, a.url.Submit = true, true
 	a.presets = ytdlp.Presets()
 	a.preset = newPresetDropdown(s.Preset)
@@ -214,6 +217,15 @@ func (a *App) applySettings(next settings.Settings) {
 	a.q.SetParallel(next.Parallel)
 }
 
+// retryHook makes a retried job use the current cookie and subtitle settings
+// instead of the ones frozen when it was queued; folder, format and URL stay
+// (the .part file lives in that folder). Threading: Queue.Retry is called only
+// from row.go while laying out, and applySettings (the only writer of a.s)
+// runs in frame, both on the window goroutine, so reading a.s here needs no lock.
+func (a *App) retryHook(o *ytdlp.Options) {
+	o.Cookies, o.Subs, o.SubLang = a.s.Cookies, a.s.Subs, a.s.SubLang
+}
+
 func (a *App) header(gtx theme.C) theme.D {
 	t := a.th
 	return layout.Inset{Top: 16, Left: pad, Right: pad, Bottom: 16}.Layout(gtx, func(gtx theme.C) theme.D {
@@ -280,6 +292,9 @@ func (a *App) status(gtx theme.C) theme.D {
 }
 
 func (a *App) queueList(gtx theme.C) theme.D {
+	if a.clearBt.Clicked(gtx) {
+		a.q.ClearDone()
+	}
 	jobs := a.q.Jobs()
 	live := make(map[int]bool, len(jobs))
 	for _, j := range jobs {
@@ -296,17 +311,37 @@ func (a *App) queueList(gtx theme.C) theme.D {
 	if len(jobs) == 0 {
 		return layout.Center.Layout(gtx, a.th.Muted("No downloads yet — paste a link above.").Layout)
 	}
-	// Rows carry their own side padding so card shadows are not clipped by the list.
-	return material.List(a.th.Theme, &a.list).Layout(gtx, len(jobs), func(gtx theme.C, i int) theme.D {
-		j := jobs[i]
-		in := layout.Inset{Left: pad, Right: pad, Bottom: 12}
-		if i == 0 {
-			in.Top = 16
-		}
-		return in.Layout(gtx, func(gtx theme.C) theme.D {
-			return a.rows[j.ID].layout(gtx, a.th, a.q, j, a.hintFor(j.Err))
+	done := slices.ContainsFunc(jobs, func(j queue.Job) bool { return j.State == queue.Done })
+	// The bar is outside the scrolling list, so rows scroll away under its bottom
+	// edge (the list clips them) and never run flush against the input area above.
+	bar := func(gtx theme.C) theme.D {
+		return layout.Inset{Top: 12, Bottom: 8, Left: pad + 4, Right: pad}.Layout(gtx, func(gtx theme.C) theme.D {
+			gtx.Constraints.Min.X = gtx.Constraints.Max.X // so the button sits right-aligned
+			return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
+				layout.Flexed(1, a.th.Muted("Queue · "+strconv.Itoa(len(jobs))).Layout),
+				layout.Rigid(func(gtx theme.C) theme.D {
+					if !done {
+						return theme.D{}
+					}
+					return a.th.Button(&a.clearBt, "Clear completed").Layout(gtx)
+				}),
+			)
 		})
-	})
+	}
+	// Rows carry their own side padding so card shadows are not clipped by the list.
+	list := func(gtx theme.C) theme.D {
+		return material.List(a.th.Theme, &a.list).Layout(gtx, len(jobs), func(gtx theme.C, i int) theme.D {
+			j := jobs[i]
+			in := layout.Inset{Left: pad, Right: pad, Bottom: 12}
+			if i == 0 {
+				in.Top = 4 // room for the first card's shadow
+			}
+			return in.Layout(gtx, func(gtx theme.C) theme.D {
+				return a.rows[j.ID].layout(gtx, a.th, a.q, j, a.hintFor(j.Err))
+			})
+		})
+	}
+	return layout.Flex{Axis: layout.Vertical}.Layout(gtx, layout.Rigid(bar), layout.Flexed(1, list))
 }
 
 func (a *App) footer(gtx theme.C) theme.D {

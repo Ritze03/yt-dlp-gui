@@ -612,3 +612,78 @@ func TestJobsIsACopy(t *testing.T) {
 		t.Errorf("mutating the snapshot changed the queue: %+v", j)
 	}
 }
+
+func TestRetryHookAppliesCurrentSettings(t *testing.T) {
+	f := newFake(t)
+	var mu sync.Mutex
+	var seen []ytdlp.Options
+	f.script = func(url string, call int) error {
+		if call == 1 {
+			return &ytdlp.Error{LastError: "Sign in to confirm you're not a bot"}
+		}
+		return nil
+	}
+	q := New(func(ctx context.Context, o ytdlp.Options, on func(ytdlp.Progress)) (ytdlp.Result, error) {
+		mu.Lock()
+		seen = append(seen, o)
+		mu.Unlock()
+		return f.run(ctx, o, on)
+	}, 1, nil)
+	defer q.Close()
+	q.SetRetryHook(func(o *ytdlp.Options) { o.Cookies, o.Subs = "firefox", true })
+	o := ytdlp.Options{URL: "bad", Folder: "/dl", Preset: ytdlp.AudioMP3, Cookies: "none", SubLang: "de"}
+	id := q.Add("bad", o)
+	waitState(t, q, id, Failed)
+	q.Retry(id)
+	waitState(t, q, id, Done)
+	mu.Lock()
+	defer mu.Unlock()
+	want := o
+	want.Cookies, want.Subs = "firefox", true
+	if len(seen) != 2 || seen[0] != o || seen[1] != want {
+		t.Errorf("runs = %+v, want first %+v then %+v (folder/preset/URL kept)", seen, o, want)
+	}
+}
+
+func TestClearDone(t *testing.T) {
+	f := newFake(t)
+	f.script = func(url string, _ int) error {
+		switch url {
+		case "run":
+			<-f.gate("run") // stays Running until released
+		case "bad":
+			return &ytdlp.Error{LastError: "nope"}
+		}
+		return nil
+	}
+	q := New(f.run, 1, nil) // one slot: canc stays Queued behind run
+	defer q.Close()
+	if n := q.ClearDone(); n != 0 {
+		t.Errorf("empty queue: cleared %d", n)
+	}
+	a := q.Add("a", opts("a"))
+	b := q.Add("b", opts("b"))
+	bad := q.Add("bad", opts("bad"))
+	run := q.Add("run", opts("run"))
+	waitState(t, q, a, Done)
+	waitState(t, q, b, Done)
+	waitState(t, q, bad, Failed)
+	waitState(t, q, run, Running)
+	canc := q.Add("canc", opts("canc"))
+	q.Cancel(canc)
+	waitState(t, q, canc, Cancelled)
+	if n := q.ClearDone(); n != 2 {
+		t.Errorf("cleared %d, want 2", n)
+	}
+	got := map[int]State{}
+	for _, j := range q.Jobs() {
+		got[j.ID] = j.State
+	}
+	if len(got) != 3 || got[bad] != Failed || got[run] != Running || got[canc] != Cancelled {
+		t.Errorf("remaining = %v", got)
+	}
+	if n := q.ClearDone(); n != 0 {
+		t.Errorf("second clear removed %d", n)
+	}
+	f.release("run")
+}

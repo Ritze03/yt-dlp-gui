@@ -1,6 +1,6 @@
 # GUI for yt-dlp
 
-> **Stage 7** — user-testing phase B (I7–I12) · started 2026-10-12
+> **Stage 5** — building phase B fixes from user testing (theme in settings, Zen/Floorp cookies) · started 2026-10-12
 > Phase A passed agent and user testing.
 
 ## Goal

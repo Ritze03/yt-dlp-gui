@@ -4,6 +4,8 @@
 
 | ✓ | ID | Task | Agent | Owns | State | Branch |
 |:-:|:--:|------|-------|------|-------|--------|
+|   | 14 | User note 2: cookies support Zen + Floorp (Firefox forks) — add to ytdlp.Browsers, map to firefox:<profile root> for both -J and download; tests + live probe — I7 | `tl-sonnet-high` | `internal/ytdlp` | queued | — |
+|   | 15 | User note 1: theme setting moves into the settings panel (Dark/Light), header toggle removed — I11 | `tl-sonnet-high` | `internal/ui/app/settingspanel.go`, `internal/ui/app/settingspanel_test.go`, `internal/ui/app/window.go`, `internal/ui/app/window_test.go` | queued | — |
 
 ## Done
 

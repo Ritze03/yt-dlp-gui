@@ -1,6 +1,6 @@
 # GUI for yt-dlp
 
-> **Stage 5** — building user note: queue bar buttons "Cancel all", "Clear cancelled", "Clear completed" · started 2026-10-12
+> **Stage 7** — user-testing phase B (three queue bar buttons merged) · started 2026-10-12
 > Phase A passed agent and user testing.
 
 ## Goal

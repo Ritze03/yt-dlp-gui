@@ -47,7 +47,7 @@ type App struct {
 	rows    map[int]*rowState // by job ID, pruned every frame
 	focused bool              // URL field focused once at startup
 
-	// Panels between the status line and the queue; at most one is shown, settings first.
+	// The settings modal is drawn over the page; the picker panel sits between the status line and the queue.
 	settings *settingsPanel
 	showSet  bool
 	cur      *pendingPick // picker being shown, UI goroutine only
@@ -146,10 +146,10 @@ func (a *App) frame(gtx theme.C) {
 	if a.addBtn.Clicked(gtx) {
 		a.submit()
 	}
-	if a.gearBt.Clicked(gtx) {
-		if a.showSet = !a.showSet; a.showSet {
-			a.settings.open(a.s)
-		}
+	if a.gearBt.Clicked(gtx) && !a.showSet {
+		a.showSet = true
+		a.settings.open(a.s)
+		gtx.Execute(key.FocusCmd{Tag: &a.settings.folder})
 	}
 	a.mu.Lock()
 	if a.clearURL != "" {
@@ -170,6 +170,16 @@ func (a *App) frame(gtx theme.C) {
 		layout.Flexed(1, a.queueList),
 		layout.Rigid(a.footer),
 	)
+	if a.showSet { // modal over the page (D7)
+		next, saved, closed := a.settings.modal(gtx, t, a.s)
+		if saved {
+			a.applySettings(next)
+		}
+		if closed {
+			a.showSet = false
+			gtx.Execute(key.FocusCmd{Tag: &a.url})
+		}
+	}
 }
 
 func (a *App) save() {
@@ -414,7 +424,7 @@ func (a *App) probe(url string, s settings.Settings, choice int) {
 	a.invalidate()
 }
 
-// panels shows the settings panel, else the current picker (taking the next
+// panels shows the current picker (taking the next
 // pending probe if none is open). Queued / cancelled pickers close at once.
 func (a *App) panels(gtx theme.C) theme.D {
 	t := a.th
@@ -434,17 +444,6 @@ func (a *App) panels(gtx theme.C) theme.D {
 	}
 	var w layout.Widget
 	switch {
-	case a.showSet:
-		w = func(gtx theme.C) theme.D {
-			d, next, saved, closed := a.settings.layout(gtx, t, a.s)
-			if saved {
-				a.applySettings(next)
-			}
-			if closed {
-				a.showSet = false
-			}
-			return d
-		}
 	case a.cur != nil && a.cur.pl != nil:
 		w = func(gtx theme.C) theme.D {
 			d, queue, cancel := a.cur.pl.layout(gtx, t)

@@ -4,6 +4,7 @@
 
 | ✓ | ID | Task | Agent | Owns | State | Branch |
 |:-:|:--:|------|-------|------|-------|--------|
+|   | 23 | User note: greyed-out queue-bar buttons must show no click ripple — I11 | `tl-sonnet-medium` | `internal/ui/app/window.go`, `internal/ui/app/window_test.go` | queued | — |
 
 ## Done
 

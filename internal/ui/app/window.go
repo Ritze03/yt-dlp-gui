@@ -26,6 +26,9 @@ const (
 	outdatedHint = "yt-dlp may be outdated."
 	blockedHint  = "YouTube blocked this request — retry, or set a cookies browser in Settings."
 	pad          = 20 // dp, window edge padding
+
+	advancedLabel = "Advanced…" // dropdown option after the presets (D6)
+	advancedNote  = "Advanced… is for single videos — playlist entries use Best."
 )
 
 // App is the main window's state. Run it on the goroutine that owns the window.
@@ -40,19 +43,27 @@ type App struct {
 	preset  *theme.Dropdown
 	addBtn  widget.Clickable
 	themeBt widget.Clickable
-	list    layout.List
+	gearBt  widget.Clickable
+	list    widget.List
 	rows    map[int]*rowState // by job ID, pruned every frame
 	focused bool              // URL field focused once at startup
+
+	// Panels between the status line and the queue; at most one is shown, settings first.
+	settings *settingsPanel
+	showSet  bool
+	cur      *pendingPick // picker being shown, UI goroutine only
 
 	// mu guards what background goroutines (probes, version check) write.
 	// Everything else is touched by the UI goroutine only.
 	mu       sync.Mutex
-	probing  int    // probes in flight (ponytail: several may run at once, one status line)
-	probeErr string // last probe error + hint, "" when none
-	clearURL string // URL of a probe that succeeded; the UI goroutine clears the field if it still matches
-	version  string // yt-dlp --version
-	verErr   bool   // yt-dlp could not be run
-	latest   string // latest release tag, "" until known / on failure
+	probing  int           // probes in flight (ponytail: several may run at once, one status line)
+	probeErr string        // last probe error + hint, "" when none
+	note     string        // muted status note, "" when none
+	pending  []pendingPick // probes waiting for a picker, FIFO (ponytail: one picker at a time)
+	clearURL string        // URL of a probe that succeeded; the UI goroutine clears the field if it still matches
+	version  string        // yt-dlp --version
+	verErr   bool          // yt-dlp could not be run
+	latest   string        // latest release tag, "" until known / on failure
 }
 
 // New builds the window state, loads settings and starts the version check.
@@ -66,15 +77,18 @@ func New(w *app.Window) *App {
 		th:   theme.New(s.Dark),
 		s:    s,
 		q:    queue.New(nil, s.Parallel, w.Invalidate),
-		list: layout.List{Axis: layout.Vertical},
 		rows: map[int]*rowState{},
+
+		settings: newSettingsPanel(),
 	}
+	a.list.Axis = layout.Vertical
 	a.url.SingleLine, a.url.Submit = true, true
 	a.presets = ytdlp.Presets()
-	labels := make([]string, len(a.presets))
+	labels := make([]string, len(a.presets), len(a.presets)+1)
 	for i, p := range a.presets {
 		labels[i] = p.String()
 	}
+	labels = append(labels, advancedLabel)
 	a.preset = theme.NewDropdown(labels)
 	go a.checkVersion()
 	return a
@@ -138,6 +152,11 @@ func (a *App) frame(gtx theme.C) {
 		a.s.Dark = a.th.Dark
 		a.save()
 	}
+	if a.gearBt.Clicked(gtx) {
+		if a.showSet = !a.showSet; a.showSet {
+			a.settings.open(a.s)
+		}
+	}
 	a.mu.Lock()
 	if a.clearURL != "" {
 		if strings.TrimSpace(a.url.Text()) == a.clearURL {
@@ -153,6 +172,7 @@ func (a *App) frame(gtx theme.C) {
 		layout.Rigid(a.header),
 		layout.Rigid(a.inputCard),
 		layout.Rigid(a.status),
+		layout.Rigid(a.panels),
 		layout.Flexed(1, a.queueList),
 		layout.Rigid(a.footer),
 	)
@@ -175,6 +195,8 @@ func (a *App) header(gtx theme.C) theme.D {
 			layout.Rigid(func(gtx theme.C) theme.D { return theme.Icon(gtx, theme.IcDownload, 24, t.P.Accent) }),
 			layout.Rigid(layout.Spacer{Width: 10}.Layout),
 			layout.Flexed(1, t.Title("yt-dlp GUI").Layout),
+			layout.Rigid(t.IconButton(&a.gearBt, theme.IcSettings, "Settings").Layout),
+			layout.Rigid(layout.Spacer{Width: 4}.Layout),
 			layout.Rigid(t.IconButton(&a.themeBt, ic, desc).Layout),
 		)
 	})
@@ -216,7 +238,7 @@ func (a *App) addButton(gtx theme.C) theme.D {
 // status is the line under the input card: "Fetching info…" or the last probe error.
 func (a *App) status(gtx theme.C) theme.D {
 	a.mu.Lock()
-	probing, perr := a.probing, a.probeErr
+	probing, perr, note := a.probing, a.probeErr, a.note
 	a.mu.Unlock()
 	var l material.LabelStyle
 	switch {
@@ -225,6 +247,8 @@ func (a *App) status(gtx theme.C) theme.D {
 	case perr != "":
 		l = a.th.Muted(perr)
 		l.Color = a.th.P.Error
+	case note != "":
+		l = a.th.Muted(note)
 	default:
 		return theme.D{}
 	}
@@ -249,7 +273,7 @@ func (a *App) queueList(gtx theme.C) theme.D {
 		return layout.Center.Layout(gtx, a.th.Muted("No downloads yet — paste a link above.").Layout)
 	}
 	// Rows carry their own side padding so card shadows are not clipped by the list.
-	return a.list.Layout(gtx, len(jobs), func(gtx theme.C, i int) theme.D {
+	return material.List(a.th.Theme, &a.list).Layout(gtx, len(jobs), func(gtx theme.C, i int) theme.D {
 		j := jobs[i]
 		in := layout.Inset{Left: pad, Right: pad, Bottom: 12}
 		if i == 0 {
@@ -265,21 +289,32 @@ func (a *App) footer(gtx theme.C) theme.D {
 	a.mu.Lock()
 	v, verErr, latest := a.version, a.verErr, a.latest
 	a.mu.Unlock()
-	t := a.th
-	var l material.LabelStyle
-	switch {
-	case verErr:
-		l = t.Muted("yt-dlp not found — install it and restart")
-		l.Color = t.P.Error
-	case v == "":
+	txt, warn, bad := footerText(v, latest, verErr)
+	if txt == "" {
 		return theme.D{}
-	case ytdlp.Newer(v, latest):
-		l = t.Muted("yt-dlp " + v + " — update available (" + latest + ")")
-		l.Color = t.P.Warning
-	default:
-		l = t.Muted("yt-dlp " + v)
+	}
+	l := a.th.Muted(txt)
+	switch {
+	case bad:
+		l.Color = a.th.P.Error
+	case warn:
+		l.Color = a.th.P.Warning
 	}
 	return layout.Inset{Top: 8, Bottom: 12, Left: pad, Right: pad}.Layout(gtx, l.Layout)
+}
+
+// footerText is the D22 footer: the local yt-dlp version, a warning when the
+// latest release tag is newer, an error when yt-dlp could not be run.
+func footerText(version, latest string, verErr bool) (text string, warn, bad bool) {
+	switch {
+	case verErr:
+		return "yt-dlp not found — install it and restart", false, true
+	case version == "":
+		return "", false, false
+	case ytdlp.Newer(version, latest):
+		return "yt-dlp " + version + " — update available (" + latest + ")", true, false
+	}
+	return "yt-dlp " + version, false, false
 }
 
 // hintFor is the one-line suggestion for a failed job or probe (D16). Same as
@@ -300,51 +335,149 @@ func (a *App) hintFor(err *ytdlp.Error) string {
 	return err.Hint
 }
 
+// optsFor builds the options shared by every job of one submit from the
+// settings at that moment (D7, D17, D18) and the dropdown index. The
+// Advanced… index yields Best here; its format id is set by the picker (D24).
+func optsFor(s settings.Settings, choice int) ytdlp.Options {
+	o := ytdlp.Options{Folder: s.Folder, Preset: ytdlp.Best, Cookies: s.Cookies, Subs: s.Subs, SubLang: s.SubLang}
+	if ps := ytdlp.Presets(); choice < len(ps) {
+		o.Preset = ps[choice]
+	}
+	return o
+}
+
+func isAdvanced(choice int) bool { return choice >= len(ytdlp.Presets()) }
+
+// pendingPick is a probe result waiting for the user: a playlist checkbox list
+// or, for a single video on Advanced…, the format list.
+type pendingPick struct {
+	p    *ytdlp.Probe
+	base ytdlp.Options // URL and settings as of submit time
+	pl   *playlistPicker
+	fp   *formatPicker
+}
+
 // submit probes the URL field in the background and queues the result.
 func (a *App) submit() {
 	url := strings.TrimSpace(a.url.Text())
 	if url == "" {
 		return
 	}
-	base := ytdlp.Options{
-		Folder:  a.s.Folder,
-		Preset:  a.presets[a.preset.Selected()],
-		Cookies: a.s.Cookies,
-		Subs:    a.s.Subs,
-		SubLang: a.s.SubLang,
-	}
+	s, choice := a.s, a.preset.Selected() // settings and preset as of now
 	a.mu.Lock()
 	a.probing++
-	a.probeErr = ""
+	a.probeErr, a.note = "", ""
 	a.mu.Unlock()
-	go func() {
-		// ponytail: no cancel for a running probe; ProbeURL ends on its own and Close() does not wait for it.
-		p, err := ytdlp.ProbeURL(context.Background(), url, base.Cookies)
-		msg := ""
-		if err == nil {
-			base.URL = url
-			if p.IsPlaylist {
-				a.q.AddEntries(p.Entries, base)
-			} else {
-				a.q.Add(p.Title, base)
+	// ponytail: no cancel for a running probe; ProbeURL ends on its own and Close() does not wait for it.
+	go a.probe(url, s, choice)
+}
+
+func (a *App) invalidate() {
+	if a.w != nil {
+		a.w.Invalidate()
+	}
+}
+
+// probe runs the -J call and either queues straight away (single video, normal
+// preset) or hands the result to the UI goroutine through a.pending.
+func (a *App) probe(url string, s settings.Settings, choice int) {
+	p, err := ytdlp.ProbeURL(context.Background(), url, s.Cookies)
+	msg, note, ok := "", "", true
+	var ye *ytdlp.Error
+	switch {
+	case err == nil:
+		base := optsFor(s, choice)
+		base.URL = url
+		if p.IsPlaylist || isAdvanced(choice) {
+			if p.IsPlaylist && isAdvanced(choice) {
+				note = advancedNote
 			}
+			a.mu.Lock()
+			a.pending = append(a.pending, pendingPick{p: p, base: base})
+			a.mu.Unlock()
 		} else {
-			msg = err.Error()
-			var ye *ytdlp.Error
-			if errors.As(err, &ye) {
-				msg = ye.Error()
-				if h := a.hintFor(ye); h != "" {
-					msg += " — " + h
-				}
-			}
+			a.q.Add(p.Title, base)
 		}
+	case errors.As(err, &ye):
+		// ponytail: an unprobeable URL is queued anyway; the download fails with yt-dlp's own
+		// ERROR: line and the row offers Details + Retry (D16), at the cost of one extra yt-dlp run.
+		base := optsFor(s, choice)
+		base.URL = url
+		a.q.Add(url, base)
+	default: // ErrTooDeep, bad JSON: no row
+		msg, ok = err.Error(), false
+	}
+	a.mu.Lock()
+	a.probing--
+	a.probeErr, a.note = msg, note
+	if ok {
+		a.clearURL = url
+	}
+	a.mu.Unlock()
+	a.invalidate()
+}
+
+// panels shows the settings panel, else the current picker (taking the next
+// pending probe if none is open). Queued / cancelled pickers close at once.
+func (a *App) panels(gtx theme.C) theme.D {
+	t := a.th
+	if a.cur == nil {
 		a.mu.Lock()
-		a.probing--
-		a.probeErr = msg
-		if err == nil {
-			a.clearURL = url
+		if len(a.pending) > 0 {
+			pk := a.pending[0]
+			a.pending = a.pending[1:]
+			a.cur = &pk
+			if pk.p.IsPlaylist {
+				pk.pl = newPlaylistPicker(pk.p)
+			} else {
+				pk.fp = newFormatPicker(pk.p)
+			}
 		}
 		a.mu.Unlock()
-		a.w.Invalidate()
-	}()
+	}
+	var w layout.Widget
+	switch {
+	case a.showSet:
+		w = func(gtx theme.C) theme.D {
+			d, next, saved, closed := a.settings.layout(gtx, t, a.s)
+			if saved {
+				a.s = next
+				a.save()
+				a.q.SetParallel(next.Parallel)
+			}
+			if closed {
+				a.showSet = false
+			}
+			return d
+		}
+	case a.cur != nil && a.cur.pl != nil:
+		w = func(gtx theme.C) theme.D {
+			d, queue, cancel := a.cur.pl.layout(gtx, t)
+			if queue {
+				a.q.AddEntries(a.cur.pl.checked(), a.cur.base)
+			}
+			if queue || cancel {
+				a.cur = nil
+				a.invalidate()
+			}
+			return d
+		}
+	case a.cur != nil:
+		w = func(gtx theme.C) theme.D {
+			d, f, picked, cancel := a.cur.fp.layout(gtx, t)
+			if picked {
+				o := a.cur.base
+				o.FormatID, o.VideoOnlyFormat = f.ID, f.VideoOnly()
+				a.q.Add(a.cur.p.Title, o)
+			}
+			if picked || cancel {
+				a.cur = nil
+				a.invalidate()
+			}
+			return d
+		}
+	default:
+		return theme.D{}
+	}
+	return layout.Inset{Top: 12, Left: pad, Right: pad}.Layout(gtx, w)
 }

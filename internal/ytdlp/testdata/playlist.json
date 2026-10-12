@@ -1,0 +1,40 @@
+{
+ "_type": "playlist",
+ "id": "PLabc123",
+ "title": "My Mix: 100% Best/Songs",
+ "webpage_url": "https://www.youtube.com/playlist?list=PLabc123",
+ "entries": [
+  {
+   "_type": "url",
+   "ie_key": "Youtube",
+   "id": "aaaaaaaaaaa",
+   "url": "https://www.youtube.com/watch?v=aaaaaaaaaaa",
+   "title": "First song",
+   "duration": 120.0
+  },
+  {
+   "_type": "url",
+   "ie_key": "Youtube",
+   "id": "bbbbbbbbbbb",
+   "url": null,
+   "title": "[Private video]",
+   "duration": null
+  },
+  null,
+  {
+   "_type": "url",
+   "ie_key": "Youtube",
+   "id": "ccccccccccc",
+   "url": "https://www.youtube.com/watch?v=ccccccccccc",
+   "title": "Third song",
+   "duration": 215.0
+  },
+  {
+   "_type": "url",
+   "ie_key": "Youtube",
+   "id": "ddddddddddd",
+   "title": "No url field",
+   "duration": 60
+  }
+ ]
+}

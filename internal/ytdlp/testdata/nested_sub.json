@@ -1,0 +1,23 @@
+{
+ "_type": "playlist",
+ "id": "UCchan-shorts",
+ "title": "Some Channel - Shorts",
+ "entries": [
+  {
+   "_type": "url",
+   "ie_key": "Youtube",
+   "id": "sssssssss01",
+   "url": "https://www.youtube.com/watch?v=sssssssss01",
+   "title": "Short one",
+   "duration": 15.0
+  },
+  {
+   "_type": "url",
+   "ie_key": "Youtube",
+   "id": "sssssssss02",
+   "url": "https://www.youtube.com/watch?v=sssssssss02",
+   "title": "Short two",
+   "duration": 20.0
+  }
+ ]
+}

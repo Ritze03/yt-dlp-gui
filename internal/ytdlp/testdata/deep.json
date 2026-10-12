@@ -1,0 +1,29 @@
+{
+ "_type": "playlist",
+ "id": "x",
+ "title": "Deep",
+ "entries": [
+  {
+   "_type": "playlist",
+   "id": "y",
+   "title": "Level 2",
+   "entries": [
+    {
+     "_type": "playlist",
+     "id": "z",
+     "title": "Level 3",
+     "entries": [
+      {
+       "_type": "url",
+       "ie_key": "Youtube",
+       "id": "zzzzzzzzzz1",
+       "url": "https://www.youtube.com/watch?v=zzzzzzzzzz1",
+       "title": "t",
+       "duration": 1.0
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

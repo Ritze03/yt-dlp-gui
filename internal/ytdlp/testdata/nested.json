@@ -1,0 +1,46 @@
+{
+ "_type": "playlist",
+ "id": "UCchan",
+ "title": "Some Channel",
+ "webpage_url": "https://www.youtube.com/@chan",
+ "entries": [
+  {
+   "_type": "playlist",
+   "id": "UCchan",
+   "title": "Some Channel - Videos",
+   "entries": [
+    {
+     "_type": "url",
+     "ie_key": "Youtube",
+     "id": "vvvvvvvvvv1",
+     "url": "https://www.youtube.com/watch?v=vvvvvvvvvv1",
+     "title": "Upload one",
+     "duration": 300.0
+    },
+    {
+     "_type": "url",
+     "ie_key": "Youtube",
+     "id": "vvvvvvvvvv2",
+     "url": "https://www.youtube.com/watch?v=vvvvvvvvvv2",
+     "title": "Upload two",
+     "duration": 400.0
+    }
+   ]
+  },
+  {
+   "_type": "url",
+   "ie_key": "YoutubeTab",
+   "id": "UCchan-shorts",
+   "url": "https://www.youtube.com/@chan/shorts",
+   "title": "Some Channel - Shorts"
+  },
+  {
+   "_type": "url",
+   "ie_key": "Youtube",
+   "id": "rrrrrrrrrr1",
+   "url": "https://www.youtube.com/watch?v=rrrrrrrrrr1",
+   "title": "Pinned video",
+   "duration": 10.0
+  }
+ ]
+}

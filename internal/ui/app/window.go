@@ -42,13 +42,12 @@ type App struct {
 	url     widget.Editor
 	preset  *theme.Dropdown
 	addBtn  widget.Clickable
-	themeBt widget.Clickable
 	gearBt  widget.Clickable
 	list    widget.List
 	rows    map[int]*rowState // by job ID, pruned every frame
 	focused bool              // URL field focused once at startup
 
-	// Panels between the status line and the queue; at most one is shown, settings first.
+	// The settings modal is drawn over the page; the picker panel sits between the status line and the queue.
 	settings *settingsPanel
 	showSet  bool
 	cur      *pendingPick // picker being shown, UI goroutine only
@@ -147,15 +146,10 @@ func (a *App) frame(gtx theme.C) {
 	if a.addBtn.Clicked(gtx) {
 		a.submit()
 	}
-	if a.themeBt.Clicked(gtx) {
-		a.th.SetDark(!a.th.Dark)
-		a.s.Dark = a.th.Dark
-		a.save()
-	}
-	if a.gearBt.Clicked(gtx) {
-		if a.showSet = !a.showSet; a.showSet {
-			a.settings.open(a.s)
-		}
+	if a.gearBt.Clicked(gtx) && !a.showSet {
+		a.showSet = true
+		a.settings.open(a.s)
+		gtx.Execute(key.FocusCmd{Tag: &a.settings.folder})
 	}
 	a.mu.Lock()
 	if a.clearURL != "" {
@@ -176,6 +170,16 @@ func (a *App) frame(gtx theme.C) {
 		layout.Flexed(1, a.queueList),
 		layout.Rigid(a.footer),
 	)
+	if a.showSet { // modal over the page (D7)
+		next, saved, closed := a.settings.modal(gtx, t, a.s)
+		if saved {
+			a.applySettings(next)
+		}
+		if closed {
+			a.showSet = false
+			gtx.Execute(key.FocusCmd{Tag: &a.url})
+		}
+	}
 }
 
 func (a *App) save() {
@@ -184,20 +188,23 @@ func (a *App) save() {
 	}
 }
 
+// applySettings adopts saved settings. ponytail: the theme is applied on Save
+// only, no live preview while the dropdown is open.
+func (a *App) applySettings(next settings.Settings) {
+	a.s = next
+	a.th.SetDark(next.Dark)
+	a.save()
+	a.q.SetParallel(next.Parallel)
+}
+
 func (a *App) header(gtx theme.C) theme.D {
 	t := a.th
-	ic, desc := theme.IcSun, "Switch to light theme"
-	if !t.Dark {
-		ic, desc = theme.IcMoon, "Switch to dark theme"
-	}
 	return layout.Inset{Top: 16, Left: pad, Right: pad, Bottom: 16}.Layout(gtx, func(gtx theme.C) theme.D {
 		return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
 			layout.Rigid(func(gtx theme.C) theme.D { return theme.Icon(gtx, theme.IcDownload, 24, t.P.Accent) }),
 			layout.Rigid(layout.Spacer{Width: 10}.Layout),
 			layout.Flexed(1, t.Title("yt-dlp GUI").Layout),
 			layout.Rigid(t.IconButton(&a.gearBt, theme.IcSettings, "Settings").Layout),
-			layout.Rigid(layout.Spacer{Width: 4}.Layout),
-			layout.Rigid(t.IconButton(&a.themeBt, ic, desc).Layout),
 		)
 	})
 }
@@ -417,7 +424,7 @@ func (a *App) probe(url string, s settings.Settings, choice int) {
 	a.invalidate()
 }
 
-// panels shows the settings panel, else the current picker (taking the next
+// panels shows the current picker (taking the next
 // pending probe if none is open). Queued / cancelled pickers close at once.
 func (a *App) panels(gtx theme.C) theme.D {
 	t := a.th
@@ -437,19 +444,6 @@ func (a *App) panels(gtx theme.C) theme.D {
 	}
 	var w layout.Widget
 	switch {
-	case a.showSet:
-		w = func(gtx theme.C) theme.D {
-			d, next, saved, closed := a.settings.layout(gtx, t, a.s)
-			if saved {
-				a.s = next
-				a.save()
-				a.q.SetParallel(next.Parallel)
-			}
-			if closed {
-				a.showSet = false
-			}
-			return d
-		}
 	case a.cur != nil && a.cur.pl != nil:
 		w = func(gtx theme.C) theme.D {
 			d, queue, cancel := a.cur.pl.layout(gtx, t)

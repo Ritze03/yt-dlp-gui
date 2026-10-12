@@ -232,7 +232,7 @@ func (a *App) header(gtx theme.C) theme.D {
 		return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
 			layout.Rigid(func(gtx theme.C) theme.D { return theme.Icon(gtx, theme.IcDownload, 24, t.P.Accent) }),
 			layout.Rigid(layout.Spacer{Width: 10}.Layout),
-			layout.Flexed(1, t.Title("yt-dlp GUI").Layout),
+			layout.Flexed(1, t.Title("yt-dlp-gui").Layout),
 			layout.Rigid(t.IconButton(&a.gearBt, theme.IcSettings, "Settings").Layout),
 		)
 	})

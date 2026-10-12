@@ -60,7 +60,7 @@ func demoLoop(w *app.Window, dark bool) error {
 						return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
 							layout.Rigid(func(gtx C) D { return Icon(gtx, IcDownload, 28, th.P.Accent) }),
 							layout.Rigid(layout.Spacer{Width: 10}.Layout),
-							layout.Flexed(1, th.Title("yt-dlp GUI").Layout),
+							layout.Flexed(1, th.Title("yt-dlp-gui").Layout),
 							layout.Rigid(func(gtx C) D {
 								ic := IcSun
 								if !th.Dark {

@@ -4,6 +4,7 @@
 
 | ✓ | ID | Task | Agent | Owns | State | Branch |
 |:-:|:--:|------|-------|------|-------|--------|
+|   | 24 | User note: queue bar = Cancel all | Clear cancelled | Clear completed (Clear cancelled drops Cancelled rows + their leftovers, like Remove) — I11 | `tl-sonnet-medium` | `internal/queue`, `internal/ui/app/window.go`, `internal/ui/app/window_test.go` | queued | — |
 
 ## Done
 

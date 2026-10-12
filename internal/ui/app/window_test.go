@@ -159,6 +159,56 @@ func TestWinProbeRouting(t *testing.T) {
 	}
 }
 
+func TestWinPresetKeys(t *testing.T) {
+	if len(presetKeys) != len(ytdlp.Presets())+1 {
+		t.Fatalf("%d keys for %d presets + Advanced", len(presetKeys), len(ytdlp.Presets()))
+	}
+	for i, k := range presetKeys {
+		dd := newPresetDropdown(k)
+		if dd.Selected() != i || len(dd.Options) != len(presetKeys) {
+			t.Errorf("key %q: selected %d (want %d), %d options", k, dd.Selected(), i, len(dd.Options))
+		}
+	}
+	if presetKeys[len(presetKeys)-1] != "advanced" || !isAdvanced(len(presetKeys)-1) {
+		t.Error("last key must be the Advanced option")
+	}
+	if got := newPresetDropdown("bogus").Selected(); got != 0 {
+		t.Errorf("unknown key selected %d, want 0", got)
+	}
+}
+
+func TestWinPresetStartupSelection(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	for key, label := range map[string]string{"advanced": advancedLabel, "m4a": ytdlp.AudioM4A.String()} {
+		s := settings.Default()
+		s.Preset = key
+		if err := settings.Save(s); err != nil {
+			t.Fatal(err)
+		}
+		loaded, _ := settings.Load()
+		dd := newPresetDropdown(loaded.Preset)
+		if got := dd.Options[dd.Selected()]; got != label {
+			t.Errorf("saved %q: dropdown shows %q, want %q", key, got, label)
+		}
+	}
+}
+
+func TestWinApplySettingsKeepsPreset(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	a := winApp()
+	a.th = theme.New(true)
+	a.s = settings.Default()
+	a.s.Preset = "mp3"
+	next, err := settingsFromFields(a.s, a.s.Folder, 0, 1, 0, false, "en") // what the panel's Save builds
+	if err != nil {
+		t.Fatal(err)
+	}
+	a.applySettings(next)
+	if got, _ := settings.Load(); a.s.Preset != "mp3" || got.Preset != "mp3" {
+		t.Errorf("Preset after settings Save: app=%q file=%q, want mp3", a.s.Preset, got.Preset)
+	}
+}
+
 func TestWinApplySettingsTheme(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	a := winApp()

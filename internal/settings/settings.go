@@ -21,6 +21,7 @@ type Settings struct {
 	Cookies  string `json:"cookies"`  // one of ytdlp.Browsers
 	Subs     bool   `json:"subs"`
 	SubLang  string `json:"sub_lang"`
+	Preset   string `json:"preset"` // format dropdown choice, a stable key owned by the UI ("best" ... "advanced")
 }
 
 // Default returns the first-run settings: dark theme, ~/Downloads, one
@@ -33,6 +34,7 @@ func Default() Settings {
 		Parallel: 1,
 		Cookies:  "none",
 		SubLang:  "en",
+		Preset:   "best",
 	}
 }
 
@@ -79,6 +81,9 @@ func (s Settings) normalize() Settings {
 	}
 	if s.SubLang == "" {
 		s.SubLang = d.SubLang
+	}
+	if s.Preset == "" { // unknown keys are the UI's to fall back on
+		s.Preset = d.Preset
 	}
 	return s
 }

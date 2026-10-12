@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"log"
+	"slices"
 	"strings"
 	"sync"
 
@@ -83,14 +84,26 @@ func New(w *app.Window) *App {
 	a.list.Axis = layout.Vertical
 	a.url.SingleLine, a.url.Submit = true, true
 	a.presets = ytdlp.Presets()
-	labels := make([]string, len(a.presets), len(a.presets)+1)
-	for i, p := range a.presets {
-		labels[i] = p.String()
-	}
-	labels = append(labels, advancedLabel)
-	a.preset = theme.NewDropdown(labels)
+	a.preset = newPresetDropdown(s.Preset)
 	go a.checkVersion()
 	return a
+}
+
+// presetKeys are the persisted names of the dropdown options, in dropdown
+// order (the ytdlp.Presets() order, then Advanced). Keys, not indexes, so
+// reordering presets later does not silently change a saved choice.
+var presetKeys = []string{"best", "1080p", "720p", "m4a", "mp3", "advanced"}
+
+// newPresetDropdown builds the format dropdown with key selected; an unknown
+// key selects the first option.
+func newPresetDropdown(key string) *theme.Dropdown {
+	var labels []string
+	for _, p := range ytdlp.Presets() {
+		labels = append(labels, p.String())
+	}
+	dd := theme.NewDropdown(append(labels, advancedLabel))
+	dd.SetSelected(max(slices.Index(presetKeys, key), 0))
+	return dd
 }
 
 // checkVersion fills the footer: local version, then the latest GitHub tag (D22).
@@ -142,6 +155,10 @@ func (a *App) frame(gtx theme.C) {
 		if _, ok := ev.(widget.SubmitEvent); ok {
 			a.submit()
 		}
+	}
+	if a.preset.Changed() {
+		a.s.Preset = presetKeys[a.preset.Selected()]
+		a.save()
 	}
 	if a.addBtn.Clicked(gtx) {
 		a.submit()

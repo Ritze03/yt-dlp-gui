@@ -44,7 +44,7 @@ func TestLoadMissingFileGivesDefaults(t *testing.T) {
 
 func TestSaveLoadRoundTripAndThemePersists(t *testing.T) {
 	dir := redirect(t)
-	want := Settings{Dark: false, Folder: "/tmp/x", Parallel: 3, Cookies: "firefox", Subs: true, SubLang: "de"}
+	want := Settings{Dark: false, Folder: "/tmp/x", Parallel: 3, Cookies: "firefox", Subs: true, SubLang: "de", Preset: "m4a"}
 	if err := Save(want); err != nil {
 		t.Fatal(err)
 	}
@@ -93,6 +93,16 @@ func TestOutOfRangeFixedUp(t *testing.T) {
 	write(t, `{"cookies":"netscape"}`)
 	if s, _ := Load(); s.Cookies != "none" {
 		t.Errorf("Cookies = %q, want none", s.Cookies)
+	}
+}
+
+func TestPresetDefaultsToBest(t *testing.T) {
+	for _, in := range []string{`{}`, `{"preset":""}`} {
+		redirect(t)
+		write(t, in)
+		if s, err := Load(); err != nil || s.Preset != "best" {
+			t.Errorf("%s: preset=%q err=%v, want best", in, s.Preset, err)
+		}
 	}
 }
 

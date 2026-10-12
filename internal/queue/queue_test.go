@@ -687,3 +687,57 @@ func TestClearDone(t *testing.T) {
 	}
 	f.release("run")
 }
+
+func TestClearCancelled(t *testing.T) {
+	f := newFake(t)
+	f.script = func(url string, _ int) error {
+		switch url {
+		case "run":
+			<-f.gate("run")
+			return context.Canceled // as yt-dlp killed by Cancel
+		case "bad":
+			return &ytdlp.Error{LastError: "nope"}
+		}
+		return nil
+	}
+	q := New(f.run, 1, nil)
+	defer q.Close()
+	if n := q.ClearCancelled(); n != 0 {
+		t.Errorf("empty queue: cleared %d", n)
+	}
+	done := q.Add("done", opts("done"))
+	bad := q.Add("bad", opts("bad"))
+	waitState(t, q, done, Done)
+	waitState(t, q, bad, Failed)
+	os.WriteFile(f.dest("done"), []byte("final"), 0o644) // the script runner writes no media
+	run := q.Add("run", opts("run"))
+	waitState(t, q, run, Running)
+	c1 := q.Add("c1", opts("c1")) // queued behind run, cancelled with no Dest
+	q.Cancel(c1)
+	waitState(t, q, c1, Cancelled)
+	q.Cancel(run) // started, then cancelled: keeps a .part
+	f.release("run")
+	waitState(t, q, run, Cancelled)
+	if !exists(f.part("run")) {
+		t.Fatal("cancelled job should keep .part")
+	}
+	if n := q.ClearCancelled(); n != 2 {
+		t.Errorf("cleared %d, want 2", n)
+	}
+	got := map[int]State{}
+	for _, j := range q.Jobs() {
+		got[j.ID] = j.State
+	}
+	if len(got) != 2 || got[done] != Done || got[bad] != Failed {
+		t.Errorf("remaining = %v", got)
+	}
+	if exists(f.part("run")) {
+		t.Error("cancelled .part not deleted")
+	}
+	if !exists(f.dest("done")) || !exists(f.part("bad")) {
+		t.Error("Done file or Failed .part was touched")
+	}
+	if n := q.ClearCancelled(); n != 0 {
+		t.Errorf("second clear removed %d", n)
+	}
+}

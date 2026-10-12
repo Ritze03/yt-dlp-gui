@@ -245,6 +245,30 @@ func (q *Queue) ClearDone() int {
 	return n
 }
 
+// ClearCancelled drops every Cancelled row like Remove would, deleting each
+// one's leftover .part files, and returns how many it dropped. A row is only
+// Cancelled once its download has returned (or it never started and has no
+// Dest), so nothing is still writing.
+func (q *Queue) ClearCancelled() int {
+	q.mu.Lock()
+	var dests []string
+	q.jobs = slices.DeleteFunc(q.jobs, func(j *job) bool {
+		if j.State != Cancelled {
+			return false
+		}
+		dests = append(dests, j.Dest)
+		return true
+	})
+	q.mu.Unlock()
+	for _, d := range dests {
+		ytdlp.RemovePartFiles(d) // ponytail: best effort, as in Remove
+	}
+	if len(dests) > 0 {
+		q.changed()
+	}
+	return len(dests)
+}
+
 // Close cancels everything and blocks until every download has returned.
 // Call it when the app quits.
 func (q *Queue) Close() {

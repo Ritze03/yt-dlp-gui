@@ -46,6 +46,7 @@ type App struct {
 	addBtn      widget.Clickable
 	gearBt      widget.Clickable
 	clearBt     widget.Clickable // "Clear completed" above the queue
+	clearCanBt  widget.Clickable // "Clear cancelled" next to it
 	cancelAllBt widget.Clickable // "Cancel all" next to it
 	list        widget.List
 	rows        map[int]*rowState // by job ID, pruned every frame
@@ -293,13 +294,15 @@ func (a *App) status(gtx theme.C) theme.D {
 }
 
 // queueBarState says which queue-bar buttons would do something.
-func queueBarState(jobs []queue.Job) (canCancel, canClear bool) {
+func queueBarState(jobs []queue.Job) (canCancel, canClearCancelled, canClearDone bool) {
 	for _, j := range jobs {
 		switch j.State {
 		case queue.Queued, queue.Running:
 			canCancel = true
+		case queue.Cancelled:
+			canClearCancelled = true
 		case queue.Done:
-			canClear = true
+			canClearDone = true
 		}
 	}
 	return
@@ -326,9 +329,12 @@ func (a *App) barButton(c *widget.Clickable, txt string, on bool) layout.Widget 
 
 func (a *App) queueList(gtx theme.C) theme.D {
 	jobs := a.q.Jobs()
-	canCancel, canClear := queueBarState(jobs)
-	if a.clearBt.Clicked(gtx) && canClear {
+	canCancel, canClearCancelled, canClearDone := queueBarState(jobs)
+	if a.clearBt.Clicked(gtx) && canClearDone {
 		a.q.ClearDone()
+	}
+	if a.clearCanBt.Clicked(gtx) && canClearCancelled {
+		a.q.ClearCancelled()
 	}
 	if a.cancelAllBt.Clicked(gtx) && canCancel {
 		a.q.CancelAll()
@@ -357,7 +363,9 @@ func (a *App) queueList(gtx theme.C) theme.D {
 				layout.Flexed(1, a.th.Muted("Queue · "+strconv.Itoa(len(jobs))).Layout),
 				layout.Rigid(a.barButton(&a.cancelAllBt, "Cancel all", canCancel)),
 				layout.Rigid(layout.Spacer{Width: 8}.Layout),
-				layout.Rigid(a.barButton(&a.clearBt, "Clear completed", canClear)),
+				layout.Rigid(a.barButton(&a.clearCanBt, "Clear cancelled", canClearCancelled)),
+				layout.Rigid(layout.Spacer{Width: 8}.Layout),
+				layout.Rigid(a.barButton(&a.clearBt, "Clear completed", canClearDone)),
 			)
 		})
 	}

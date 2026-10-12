@@ -295,20 +295,21 @@ func TestQueueBarState(t *testing.T) {
 		return
 	}
 	for _, c := range []struct {
-		name          string
-		jobs          []queue.Job
-		cancel, clear bool
+		name               string
+		jobs               []queue.Job
+		cancel, clrC, clrD bool
 	}{
-		{"empty", nil, false, false},
-		{"queued", j(queue.Queued), true, false},
-		{"running", j(queue.Running), true, false},
-		{"done", j(queue.Done), false, true},
-		{"failed", j(queue.Failed), false, false},
-		{"cancelled", j(queue.Cancelled), false, false},
-		{"mixed", j(queue.Done, queue.Running, queue.Failed), true, true},
+		{"empty", nil, false, false, false},
+		{"queued", j(queue.Queued), true, false, false},
+		{"running", j(queue.Running), true, false, false},
+		{"done", j(queue.Done), false, false, true},
+		{"failed", j(queue.Failed), false, false, false},
+		{"cancelled", j(queue.Cancelled), false, true, false},
+		{"mixed", j(queue.Done, queue.Running, queue.Failed), true, false, true},
+		{"cancelled+done", j(queue.Cancelled, queue.Done), false, true, true},
 	} {
-		if cc, cl := queueBarState(c.jobs); cc != c.cancel || cl != c.clear {
-			t.Errorf("%s: got cancel=%v clear=%v, want %v %v", c.name, cc, cl, c.cancel, c.clear)
+		if a, b, d := queueBarState(c.jobs); a != c.cancel || b != c.clrC || d != c.clrD {
+			t.Errorf("%s: got %v %v %v, want %v %v %v", c.name, a, b, d, c.cancel, c.clrC, c.clrD)
 		}
 	}
 }

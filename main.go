@@ -2,6 +2,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 
@@ -11,7 +12,30 @@ import (
 	ui "yt-dlp-gui/internal/ui/app"
 )
 
+const usage = `yt-dlp-gui - desktop front end for yt-dlp
+
+usage:
+  yt-dlp-gui                    open the GUI
+  yt-dlp-gui install            install the binary and a desktop entry
+  yt-dlp-gui uninstall          remove them again`
+
 func main() {
+	// Subcommands are handled before any Gio call, so they never open a window.
+	if len(os.Args) > 1 {
+		switch cmd := os.Args[1]; {
+		case cmd == "-h" || cmd == "--help" || cmd == "help":
+			fmt.Println(usage)
+			return
+		case cmd == "install" && len(os.Args) == 2:
+			os.Exit(installMain())
+		case cmd == "uninstall" && len(os.Args) == 2:
+			os.Exit(uninstallMain())
+		default:
+			fmt.Println(usage)
+			os.Exit(2)
+		}
+	}
+
 	app.ID = "yt-dlp-gui" // Wayland app_id, so sway can match the window
 	go func() {
 		w := new(app.Window)

@@ -19,6 +19,12 @@ import (
 // Only the D10/D26 test URLs; downloads go to t.TempDir(), never ~/Downloads.
 const liveURL = "https://youtu.be/55XuQm3NZi8"
 
+// subsURL has auto-captions (en) but no manual subtitles; 52 s long.
+const subsURL = "https://www.youtube.com/watch?v=KRJO1RJTloU"
+
+// cancelURL is a larger video, so the cancel lands mid-download.
+const cancelURL = "https://www.youtube.com/watch?v=aIb43qCLguo"
+
 func liveOnly(t *testing.T) {
 	t.Helper()
 	if os.Getenv("YTDLP_LIVE") != "1" {
@@ -85,7 +91,7 @@ func TestLiveCancel(t *testing.T) {
 	var last Progress
 	var once sync.Once
 	start := time.Now()
-	res, err := Download(ctx, Options{URL: liveURL, Folder: dir, Preset: Best}, func(p Progress) {
+	res, err := Download(ctx, Options{URL: cancelURL, Folder: dir, Preset: Best}, func(p Progress) {
 		last = p
 		once.Do(func() { time.AfterFunc(2*time.Second, cancel) })
 	})
@@ -102,12 +108,46 @@ func TestLiveCancel(t *testing.T) {
 	if len(parts) == 0 {
 		t.Errorf(".part file missing after cancel; dir has %v", ls(dir))
 	}
+	before := ls(dir)
+	t.Logf("dir before RemovePartFiles: %q", before)
+	if th, _ := filepath.Glob(filepath.Join(dir, "*.webp")); len(th) == 0 {
+		t.Logf("note: no .webp thumbnail present before removal")
+	}
 	// and RemovePartFiles finds exactly those
 	if err := RemovePartFiles(res.Dest); err != nil {
 		t.Fatal(err)
 	}
 	if left, _ := filepath.Glob(filepath.Join(dir, "*.part*")); len(left) != 0 {
 		t.Errorf("RemovePartFiles left %v", left)
+	}
+	if left := ls(dir); len(left) != 0 {
+		t.Errorf("dir not empty after RemovePartFiles: %q", left)
+	}
+}
+
+// Subs on a video preset must embed a subtitle stream from the auto-captions,
+// and leave no .vtt behind.
+func TestLiveSubs(t *testing.T) {
+	liveOnly(t)
+	dir := t.TempDir()
+	res, err := Download(context.Background(), Options{URL: subsURL, Folder: dir, Preset: P720, Subs: true, SubLang: "en"}, nil)
+	var ye *Error
+	if errors.As(err, &ye) {
+		t.Fatalf("%v\nhint: %q\nstderr tail:\n%s", err, ye.Hint, strings.Join(ye.StderrTail, "\n"))
+	} else if err != nil {
+		t.Fatal(err)
+	}
+	out, err := exec.Command("ffprobe", "-v", "error", "-show_entries", "stream=index,codec_type,codec_name:stream_tags=language", "-of", "compact", res.Path).CombinedOutput()
+	if err != nil {
+		t.Fatalf("ffprobe: %v\n%s", err, out)
+	}
+	t.Logf("ffprobe:\n%s", out)
+	if !strings.Contains(string(out), "codec_type=subtitle") {
+		t.Errorf("no subtitle stream in %s", res.Path)
+	}
+	t.Logf("dir: %q", ls(dir))
+	if v, _ := filepath.Glob(filepath.Join(dir, "*.vtt")); len(v) != 0 {
+		t.Errorf("stray subtitle files: %v", v)
 	}
 }
 

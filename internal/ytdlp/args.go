@@ -167,7 +167,12 @@ func Args(o Options) []string {
 		if lang == "" {
 			lang = "en"
 		}
-		a = append(a, "--write-subs", "--embed-subs", "--sub-langs", lang)
+		// --write-subs is manual subs only; --write-auto-subs adds YouTube's
+		// automatic captions, used only for langs with no manual sub
+		// (yt-dlp process_subtitles). The lang is a case-insensitive fullmatch
+		// regex, so "en" matches "en" only, not "en-orig". With --write-subs
+		// yt-dlp keeps the .vtt after embedding; no-keep-subs deletes it.
+		a = append(a, "--write-subs", "--write-auto-subs", "--embed-subs", "--compat-options", "no-keep-subs", "--sub-langs", lang)
 	}
 	a = append(a, cookieArgs(o.Cookies)...)
 	a = append(a, formatArgs(o)...)

@@ -1,6 +1,6 @@
 # GUI for yt-dlp
 
-> **Stage 5** — building phase B (I7–I12) · started 2026-10-12
+> **Stage 7** — user-testing phase B (I7–I12) · started 2026-10-12
 > Phase A passed agent and user testing.
 
 ## Goal
@@ -106,14 +106,14 @@ Empty project directory (greenfield, not a git repo). Machine scout, 2026-10-12:
 - [x] Downloading your own URLs through it feels right — *verified by: user*
 
 **Phase B — playlists, formats, settings, row actions**
-- [ ] The playlist picker, fed a fixture `-J --flat-playlist` JSON, queues only the checked entries with the D21 playlist template — *verified by: agent*
-- [ ] "Advanced…" lists the real formats for a D10 URL, and picking a video-only format id downloads it with audio merged (`ffprobe`) — *verified by: agent*
-- [ ] The Subtitles checkbox on a D10 URL that has `en` subs produces a subtitle stream (`ffprobe`); if none of them has subs, the report says so — *verified by: agent*
-- [ ] Arg building puts `--cookies-from-browser firefox` on both the `-J` and the download command when set — *verified by: agent*
-- [ ] An invalid URL ends as a failed row showing its `ERROR:` line; Retry re-runs it — *verified by: agent*
-- [ ] Open file / Show in folder build the right `xdg-open` command (unit test) — *verified by: agent*
-- [ ] The footer shows the yt-dlp version; with a mocked newer release tag it shows the warning — *verified by: agent*
-- [ ] Settings panel (folder, parallel, cookies, subtitles) values persist across a restart — *verified by: agent*
+- [x] The playlist picker, fed a fixture `-J --flat-playlist` JSON, queues only the checked entries with the D21 playlist template — *verified by: agent* — ran `go test -race -run 'Playlist|WinProbeRouting' -v ./internal/ui/app/` → pass; fixture with entries 2,5 unchecked runs only 1,3,4 with `-o "Rock_Pop_ Best 100%%/00N - %(title)s.%(ext)s"`; picker footer fix verified by TestPlaylistFooterInsideCardAndClickable
+- [x] "Advanced…" lists the real formats for a D10 URL, and picking a video-only format id downloads it with audio merged (`ffprobe`) — *verified by: agent* — ran `ffprobe -show_entries stream=codec_type,codec_name` on the Advanced 135 (480p video-only) download of KRJO1RJTloU → h264 video + opus audio (.mkv); list had 80 formats matching `yt-dlp -F`
+- [x] The Subtitles checkbox on a D10 URL that has `en` subs produces a subtitle stream (`ffprobe`); if none of them has subs, the report says so — *verified by: agent* — ran `yt-dlp --list-subs --skip-download` on all 7 D10 URLs → none has manual subtitles (5 have only auto-captions), so no subtitle stream is possible; flags covered by TestArgsSubs
+- [x] Arg building puts `--cookies-from-browser firefox` on both the `-J` and the download command when set — *verified by: agent* — ran `go test -race -run 'WinOptsFor|WinProbeCookies|ArgsCookies' -v ./internal/...` → pass; live `/proc/<pid>/cmdline` showed the flag on both the `-J` probe and the download
+- [x] An invalid URL ends as a failed row showing its `ERROR:` line; Retry re-runs it — *verified by: agent* — ran `notaurl` through the UI → Failed row "[generic] 'notaurl' is not a valid URL", Details shows the `ERROR:` line; Retry → Starting → Failed again
+- [x] Open file / Show in folder build the right `xdg-open` command (unit test) — *verified by: agent* — ran `go test -race -run RowCmds -v ./internal/ui/app/` → pass, argv `["xdg-open", path]` / `["xdg-open", dir]` for a unicode path
+- [x] The footer shows the yt-dlp version; with a mocked newer release tag it shows the warning — *verified by: agent* — ran `go test -race -run WinFooter -v ./internal/ui/app/` → pass, mocked tag 2099.01.01 gives "update available (2099.01.01)" with warn; live footer shows `yt-dlp 2026.08.19`
+- [x] Settings panel (folder, parallel, cookies, subtitles) values persist across a restart — *verified by: agent* — ran `cat settings.json` after Save + relaunch → `{"folder":"/tmp/i12dl","parallel":2,"cookies":"firefox","subs":true,"sub_lang":"en",…}`, reopened panel shows the same values
 - [ ] A real playlist URL of yours goes through the picker as expected — *verified by: user*
 - [ ] Open file / Show in folder work on your desktop, and the settings panel and picker look right — *verified by: user*
 

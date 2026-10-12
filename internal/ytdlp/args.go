@@ -97,34 +97,47 @@ func cookieArgs(browser string) []string {
 	return []string{"--cookies-from-browser", cookieSpec(browser)}
 }
 
-// forkRoots are the profile roots (relative to $HOME, native first, then
-// Flatpak) of the Firefox forks yt-dlp has no name for.
-var forkRoots = map[string][]string{
-	"zen":    {".zen", ".var/app/app.zen_browser.zen/.zen"},
-	"floorp": {".floorp", ".var/app/one.ablaze.floorp/.floorp"},
-}
-
-// cookieSpec maps a Browsers value to yt-dlp's BROWSER[:PROFILE] spec. zen and
-// floorp are Firefox-format, so they become "firefox:<profile root>"; yt-dlp
-// takes the newest cookies.sqlite under that root (root, root/*/, root/Profiles/*/).
-// The first existing root wins; none existing gives the native one, so yt-dlp
-// reports its own "could not find firefox cookies database" error.
+// cookieSpec maps a Browsers value to yt-dlp's BROWSER[:PROFILE] spec so that
+// both a system (native) and a Flatpak install are found. yt-dlp's own default
+// search already covers Flatpak/snap/XDG Firefox, so "firefox" passes through.
+// For the others: if the native profile root is absent but the Flatpak one
+// exists, point yt-dlp at the Flatpak root ("chrome:<root>"; a path PROFILE is
+// the search root, walked for Cookies / cookies.sqlite). Otherwise keep the
+// plain name so yt-dlp uses its default. zen and floorp are Firefox-format and
+// unknown to yt-dlp, so they always become "firefox:<root>" (native when it
+// exists or nothing does, so yt-dlp reports its own "could not find ... database").
+// The keyring entry yt-dlp reads for chromium-family browsers depends only on
+// the browser name, so a Flatpak root still decrypts.
 func cookieSpec(browser string) string {
-	rels, ok := forkRoots[browser]
-	if !ok {
+	// ponytail: no $HOME/config dir means relative roots, which yt-dlp fails on clearly.
+	home, _ := os.UserHomeDir()
+	cfg, _ := os.UserConfigDir() // honours XDG_CONFIG_HOME like yt-dlp's native default
+	flat := func(app, rel string) string { return filepath.Join(home, ".var/app", app, rel) }
+	var name, native, flatpak string // name: yt-dlp browser name
+	switch browser {
+	case "chromium":
+		name, native, flatpak = browser, filepath.Join(cfg, "chromium"), flat("org.chromium.Chromium", "config/chromium")
+	case "chrome":
+		name, native, flatpak = browser, filepath.Join(cfg, "google-chrome"), flat("com.google.Chrome", "config/google-chrome")
+	case "brave":
+		name, native, flatpak = browser, filepath.Join(cfg, "BraveSoftware/Brave-Browser"), flat("com.brave.Browser", "config/BraveSoftware/Brave-Browser")
+	case "zen":
+		name, native, flatpak = "firefox", filepath.Join(home, ".zen"), flat("app.zen_browser.zen", ".zen")
+	case "floorp":
+		name, native, flatpak = "firefox", filepath.Join(home, ".floorp"), flat("one.ablaze.floorp", ".floorp")
+	default:
 		return browser
 	}
-	// ponytail: no $HOME means a relative root, which yt-dlp will fail on clearly.
-	home, _ := os.UserHomeDir()
-	root := filepath.Join(home, rels[0])
-	for _, r := range rels {
-		if st, err := os.Stat(filepath.Join(home, r)); err == nil && st.IsDir() {
-			root = filepath.Join(home, r)
-			break
-		}
+	if !isDir(native) && isDir(flatpak) {
+		return name + ":" + flatpak
 	}
-	return "firefox:" + root
+	if name != browser { // fork: yt-dlp has no default for it
+		return name + ":" + native
+	}
+	return browser
 }
+
+func isDir(p string) bool { st, err := os.Stat(p); return err == nil && st.IsDir() }
 
 // Args builds the yt-dlp argument list for a download (without the binary
 // name). It is pure.

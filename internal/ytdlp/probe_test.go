@@ -10,16 +10,17 @@ import (
 	"testing"
 )
 
-// zen and floorp reach the probe call as firefox:<profile root>.
-func TestProbeURLForkCookies(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
+// With only a Flatpak install present, every browser reaches the probe call
+// with that root (forks as firefox:<root>, chromium family as <name>:<root>).
+func TestProbeURLFlatpakCookies(t *testing.T) {
 	fakeBin(t, `echo "ERROR: $*" >&2; exit 1`) // echoes its argv back as the error
-	for b, root := range map[string]string{"zen": ".zen", "floorp": ".floorp"} {
-		_, err := ProbeURL(context.Background(), "https://youtu.be/x", b)
+	for _, c := range cookieCases {
+		home := cookieEnv(t)
+		mkdir(t, filepath.Join(home, c.flatpak))
+		_, err := ProbeURL(context.Background(), "https://youtu.be/x", c.browser)
 		var ye *Error
-		if !errors.As(err, &ye) || !strings.Contains(ye.LastError, "--cookies-from-browser firefox:"+filepath.Join(home, root)+" ") {
-			t.Errorf("%s: %v", b, err)
+		if !errors.As(err, &ye) || !strings.Contains(ye.LastError, "--cookies-from-browser "+c.name+":"+filepath.Join(home, c.flatpak)+" ") {
+			t.Errorf("%s: %v", c.browser, err)
 		}
 	}
 }

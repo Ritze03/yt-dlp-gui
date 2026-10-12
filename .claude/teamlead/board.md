@@ -4,6 +4,8 @@
 
 | ✓ | ID | Task | Agent | Owns | State | Branch |
 |:-:|:--:|------|-------|------|-------|--------|
+|   | 20 | User note: UI says "yt-dlp-gui" instead of "yt-dlp GUI" (window title, header, theme demo) — I11 | `tl-sonnet-low` | `main.go`, `internal/ui/app/window.go`, `internal/ui/theme/demo_test.go` | queued | — |
+|   | 21 | User request: write a short README.md — I11 | `tl-sonnet-medium` | `README.md` | queued | — |
 
 ## Done
 

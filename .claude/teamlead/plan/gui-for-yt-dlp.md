@@ -1,6 +1,6 @@
 # GUI for yt-dlp
 
-> **Stage 5** — building user note: Cancel all next to Clear completed, both always shown (greyed when inert) · started 2026-10-12
+> **Stage 7** — user-testing phase B (Cancel all merged) · started 2026-10-12
 > Phase A passed agent and user testing.
 
 ## Goal

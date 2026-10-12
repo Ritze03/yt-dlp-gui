@@ -5,6 +5,7 @@
 #   headless.sh shot <out.png>   grim screenshot of the headless output
 #   headless.sh type <text>      wtype text into the focused window
 #   headless.sh key <key...>     wtype key presses, e.g. `key ctrl+l` `key Return` (modifier+key)
+#   headless.sh click X Y        left-click at output pixel X Y (1100x750); `click X Y move` only moves the pointer
 #   headless.sh msg <swaymsg..>  swaymsg against the headless instance (e.g. msg -t get_tree)
 #   headless.sh env              print `export` lines for the session (eval "$(headless.sh env)")
 #   headless.sh stop             kill apps + sway, remove state (idempotent)
@@ -46,18 +47,31 @@ run)
 shot)
   load; grim "${2:?usage: shot out.png}" ;;
 type)
-  shift; load; wtype "$@" ;;
+  # the first key of every wtype run is swallowed by the compositor; a throwaway Shift_L takes the hit
+  shift; load; wtype -k Shift_L "$@" ;;
 key)
   # "ctrl+l" -> -M ctrl -k l -m ctrl ; plain "Return" -> -k Return
   shift; load
   for k in "$@"; do
-    a=(); mods=(); key="${k##*+}"
+    a=(-k Shift_L); mods=(); key="${k##*+}"
     [ "$key" != "$k" ] && for m in $(echo "${k%+*}" | tr + ' '); do mods+=("$m"); done
     for m in "${mods[@]}"; do a+=(-M "$m"); done
     a+=(-k "$key")
     for m in "${mods[@]}"; do a+=(-m "$m"); done
     wtype "${a[@]}"
   done ;;
+click)
+  # headless sway has no input devices; scripts/vptr/vptr.c drives a wlr-virtual-pointer. Built on demand.
+  shift; load
+  D="$(dirname "$0")/vptr"; B="${TMPDIR:-/tmp}/ytdlp-gui-vptr"
+  if [ ! -x "$B/vptr" ] || [ "$D/vptr.c" -nt "$B/vptr" ]; then
+    mkdir -p "$B"
+    X="$D/wlr-virtual-pointer-unstable-v1.xml"
+    wayland-scanner client-header "$X" "$B/vp.h"; wayland-scanner private-code "$X" "$B/vp.c"
+    cc -o "$B/vptr" -I"$B" "$D/vptr.c" "$B/vp.c" -lwayland-client
+  fi
+  [ $# -ge 2 ] || { echo "usage: click X Y [move]" >&2; exit 2; }
+  "$B/vptr" "$1" "$2" $([ "${3:-}" = move ] || echo click) ;;
 msg)
   shift; load; swaymsg "$@" ;;
 env)
@@ -72,5 +86,5 @@ stop)
     kill -9 "$SWAY_PID" 2>/dev/null || true
   fi
   rm -rf "$ST" "$ST.apps" "$RT" ;;
-*) sed -n '2,12p' "$0"; exit 2 ;;
+*) sed -n '2,13p' "$0"; exit 2 ;;
 esac

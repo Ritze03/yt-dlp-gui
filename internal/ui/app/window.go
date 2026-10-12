@@ -308,6 +308,12 @@ func queueBarState(jobs []queue.Job) (canCancel, canClear bool) {
 // barButton is a quiet button that is greyed out and inert when !on.
 func (a *App) barButton(c *widget.Clickable, txt string, on bool) layout.Widget {
 	return func(gtx theme.C) theme.D {
+		if !on {
+			// Root cause: Clicked(gtx) in queueList reads c with an enabled gtx, so it consumes the
+			// press events a disabled button still receives, records them in c.History() and the
+			// ink draws. A throwaway Clickable keeps c unregistered and its history empty.
+			c = new(widget.Clickable)
+		}
 		b := a.th.Button(c, txt)
 		if !on {
 			gtx = gtx.Disabled() // the widget gets no input events and draws dimmed

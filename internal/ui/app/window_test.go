@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"image"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -11,6 +12,13 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"gioui.org/f32"
+	"gioui.org/io/input"
+	"gioui.org/io/pointer"
+	"gioui.org/layout"
+	"gioui.org/op"
+	"gioui.org/unit"
 
 	"yt-dlp-gui/internal/queue"
 	"yt-dlp-gui/internal/settings"
@@ -302,5 +310,35 @@ func TestQueueBarState(t *testing.T) {
 		if cc, cl := queueBarState(c.jobs); cc != c.cancel || cl != c.clear {
 			t.Errorf("%s: got cancel=%v clear=%v, want %v %v", c.name, cc, cl, c.cancel, c.clear)
 		}
+	}
+}
+
+// A press on a greyed-out bar button must leave no ink: queueList reads the real
+// Clickable with an enabled gtx, which would otherwise record the press.
+func TestBarButtonDisabledNoInk(t *testing.T) {
+	a := winApp()
+	a.th = theme.New(true)
+	var r input.Router
+	var ops op.Ops
+	now := time.Now()
+	frame := func(evs ...pointer.Event) {
+		for _, e := range evs {
+			r.Queue(e)
+		}
+		ops.Reset()
+		gtx := layout.Context{Ops: &ops, Source: r.Source(), Now: now, Metric: unit.Metric{PxPerDp: 1, PxPerSp: 1},
+			Constraints: layout.Exact(image.Pt(300, 100))}
+		a.barButton(&a.clearBt, "Clear", false)(gtx)
+		a.clearBt.Clicked(gtx) // as queueList does, with the enabled gtx
+		r.Frame(&ops)
+		now = now.Add(time.Millisecond)
+	}
+	at := f32.Pt(20, 20)
+	frame()
+	frame(pointer.Event{Kind: pointer.Press, Source: pointer.Mouse, Buttons: pointer.ButtonPrimary, Position: at})
+	frame(pointer.Event{Kind: pointer.Release, Source: pointer.Mouse, Position: at})
+	frame()
+	if h := a.clearBt.History(); len(h) != 0 {
+		t.Errorf("history = %v, want empty", h)
 	}
 }

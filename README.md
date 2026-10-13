@@ -35,6 +35,8 @@ Developed and tested on Linux (Wayland, wlroots) only. Other platforms are untes
 ## Install
 
 ```sh
+git clone https://github.com/Ritze03/yt-dlp-gui
+cd yt-dlp-gui
 go build -o yt-dlp-gui . && ./yt-dlp-gui install    # install
 ./yt-dlp-gui install                                 # reinstall/update: re-run from a fresh build
 ```

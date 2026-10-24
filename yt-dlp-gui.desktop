@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=yt-dlp GUI
+Comment=Desktop front end for yt-dlp
+Exec=yt-dlp-gui
+Terminal=false
+Categories=AudioVideo;Network;
+StartupWMClass=yt-dlp-gui

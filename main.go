@@ -15,9 +15,7 @@ import (
 const usage = `yt-dlp-gui - desktop front end for yt-dlp
 
 usage:
-  yt-dlp-gui                    open the GUI
-  yt-dlp-gui install            install the binary and a desktop entry
-  yt-dlp-gui uninstall          remove them again`
+  yt-dlp-gui                    open the GUI`
 
 func main() {
 	// Subcommands are handled before any Gio call, so they never open a window.
@@ -26,10 +24,6 @@ func main() {
 		case cmd == "-h" || cmd == "--help" || cmd == "help":
 			fmt.Println(usage)
 			return
-		case cmd == "install" && len(os.Args) == 2:
-			os.Exit(installMain())
-		case cmd == "uninstall" && len(os.Args) == 2:
-			os.Exit(uninstallMain())
 		default:
 			fmt.Println(usage)
 			os.Exit(2)

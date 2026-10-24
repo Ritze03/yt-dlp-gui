@@ -34,31 +34,25 @@ Developed and tested on Linux (Wayland, wlroots) only. Other platforms are untes
 
 ## Install
 
+With [ritz-get](https://github.com/Ritze03/ritz-get) (the main way):
+
+```sh
+ritz-get install yt-dlp-gui     # install, or update to the latest
+ritz-get remove yt-dlp-gui      # uninstall
+```
+
+Without ritz-get:
+
 ```sh
 git clone https://github.com/Ritze03/yt-dlp-gui
 cd yt-dlp-gui
-go build -o yt-dlp-gui . && ./yt-dlp-gui install    # install
-./yt-dlp-gui install                                 # reinstall/update: re-run from a fresh build
+./install.sh --install          # install; re-run from a fresh pull to update
+./install.sh --remove           # uninstall
 ```
 
-Every run is a full reinstall: it copies the binary and rewrites the desktop entry. Running the *installed* copy (`~/.local/bin/yt-dlp-gui install`) has no new binary to copy; it warns and only rewrites the desktop entry.
+`install.sh` checks the build dependencies first and lists any that are missing, builds the binary into `build/` and links it as `~/.local/bin/yt-dlp-gui` (and tells you if that directory isn't on your `$PATH`). Nothing is copied out of the clone. For an entry in your launcher, ask ritz-get for a shortcut; the repo ships `yt-dlp-gui.desktop` for that. There is no service: it's a normal app you start from your launcher or by running `yt-dlp-gui`.
 
-It asks first and writes nothing until you confirm a summary of what will change (`Proceed? [y/N]`). Then it:
-
-- copies the binary to `~/.local/bin/yt-dlp-gui` (and tells you if that directory isn't on your `$PATH`)
-- writes `${XDG_DATA_HOME:-~/.local/share}/applications/yt-dlp-gui.desktop` so the app appears in launchers
-- runs `update-desktop-database` on that directory, if the tool exists
-
-There is no service: it's a normal app you start from your launcher or by running `yt-dlp-gui`.
-
-## Uninstall
-
-```sh
-yt-dlp-gui uninstall                                 # remove (once ~/.local/bin is on $PATH)
-yt-dlp-gui help
-```
-
-After a confirmation this removes the binary and the desktop entry. `~/.config/yt-dlp-gui/settings.json` is left in place.
+Removing it deletes the link; `~/.config/yt-dlp-gui/settings.json` is left in place.
 
 ## Usage
 

@@ -32,17 +32,17 @@ need_header() {                                                  # need_header N
 # Gio needs cgo: gcc, pkg-config and the Wayland/X11/EGL/Vulkan dev files (https://gioui.org/doc/install/linux).
 check_tools() {
 	need go pacman:go dnf:golang apt:golang-go
-	need gcc pacman:base-devel dnf:gcc apt:gcc
+	need gcc pacman:gcc dnf:gcc apt:gcc
 	need_pc wayland-client pacman:wayland dnf:wayland-devel apt:libwayland-dev
 	need_pc wayland-cursor pacman:wayland dnf:wayland-devel apt:libwayland-dev
 	need_pc wayland-egl pacman:wayland dnf:wayland-devel apt:libwayland-dev
 	need_pc x11 pacman:libx11 dnf:libX11-devel apt:libx11-dev
 	need_pc x11-xcb pacman:libx11 dnf:libX11-devel apt:libx11-xcb-dev
+	need_pc xkbcommon pacman:libxkbcommon dnf:libxkbcommon-devel apt:libxkbcommon-dev
 	need_pc xkbcommon-x11 pacman:libxkbcommon-x11 dnf:libxkbcommon-x11-devel apt:libxkbcommon-x11-dev
 	need_pc xcursor pacman:libxcursor dnf:libXcursor-devel apt:libxcursor-dev
 	need_pc xfixes pacman:libxfixes dnf:libXfixes-devel apt:libxfixes-dev
 	need_pc egl pacman:mesa dnf:mesa-libEGL-devel apt:libegl1-mesa-dev
-	need_pc glesv2 pacman:mesa dnf:mesa-libGLES-devel apt:libgles2-mesa-dev
 	need_header vulkan vulkan/vulkan.h pacman:vulkan-headers dnf:vulkan-headers apt:libvulkan-dev
 }
 

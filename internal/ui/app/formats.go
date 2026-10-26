@@ -180,12 +180,9 @@ func (fp *formatPicker) row(gtx theme.C, t *theme.Theme, i int) theme.D {
 				switch {
 				case sel:
 					bg = t.P.Accent
-					bg.A = 0x29
+					bg.A = 0x33
 				case fp.rows[i].Hovered():
 					bg = t.P.Track
-					if t.Dark {
-						bg = color.NRGBA{R: 0xff, G: 0xff, B: 0xff, A: 0x0d}
-					}
 				}
 				rr := clip.UniformRRect(image.Rectangle{Max: gtx.Constraints.Min}, gtx.Dp(6))
 				paint.FillShape(gtx.Ops, bg, rr.Op(gtx.Ops))

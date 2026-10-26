@@ -45,6 +45,7 @@ type App struct {
 	preset      *theme.Dropdown
 	addBtn      widget.Clickable
 	gearBt      widget.Clickable
+	pasteBt     widget.Clickable
 	clearBt     widget.Clickable // "Clear completed" above the queue
 	clearCanBt  widget.Clickable // "Clear cancelled" next to it
 	cancelAllBt widget.Clickable // "Cancel all" next to it
@@ -64,6 +65,8 @@ type App struct {
 	probeErr string        // last probe error + hint, "" when none
 	note     string        // muted status note, "" when none
 	pending  []pendingPick // probes waiting for a picker, FIFO (ponytail: one picker at a time)
+	paste    *pasteResult  // finished clipboard read, applied by the UI goroutine
+	clipRun  clipRunner    // nil: run the real tools
 	clearURL string        // URL of a probe that succeeded; the UI goroutine clears the field if it still matches
 	version  string        // yt-dlp --version
 	verErr   bool          // yt-dlp could not be run
@@ -151,6 +154,7 @@ func (a *App) frame(gtx theme.C) {
 		a.focused = true
 		gtx.Execute(key.FocusCmd{Tag: &a.url})
 	}
+	a.pasteKey(gtx)
 	// Drain editor events before Layout does (it discards them).
 	for {
 		ev, ok := a.url.Update(gtx)
@@ -168,6 +172,10 @@ func (a *App) frame(gtx theme.C) {
 	if a.addBtn.Clicked(gtx) {
 		a.submit()
 	}
+	if a.pasteBt.Clicked(gtx) {
+		a.startPaste(false)
+	}
+	a.applyPaste(gtx)
 	if a.gearBt.Clicked(gtx) && !a.showSet {
 		a.showSet = true
 		a.settings.open(a.s)
@@ -246,6 +254,8 @@ func (a *App) inputCard(gtx theme.C) theme.D {
 		return t.Card(gtx, func(gtx theme.C) theme.D {
 			return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
 				layout.Flexed(1, func(gtx theme.C) theme.D { return t.Input(gtx, &a.url, "Paste a video or playlist URL") }),
+				layout.Rigid(layout.Spacer{Width: 8}.Layout),
+				layout.Rigid(t.Button(&a.pasteBt, "Paste").Layout),
 				layout.Rigid(layout.Spacer{Width: 12}.Layout),
 				layout.Rigid(func(gtx theme.C) theme.D { return a.preset.Layout(gtx, t) }),
 				layout.Rigid(layout.Spacer{Width: 12}.Layout),
@@ -253,6 +263,69 @@ func (a *App) inputCard(gtx theme.C) theme.D {
 			)
 		})
 	})
+}
+
+// pasteResult is a finished clipboard read. insert: Ctrl+V (insert at the caret);
+// otherwise the Paste button (replace the field).
+type pasteResult struct {
+	text   string
+	err    error
+	insert bool
+}
+
+// pasteKey takes Ctrl+V from the URL field before the editor sees it (the
+// editor would use Gio's clipboard, see clipboard.go). Call it before a.url.Update.
+func (a *App) pasteKey(gtx theme.C) {
+	for {
+		ev, ok := gtx.Event(key.Filter{Focus: &a.url, Name: "V", Required: key.ModShortcut})
+		if !ok {
+			return
+		}
+		if ke, ok := ev.(key.Event); ok && ke.State == key.Press {
+			a.startPaste(true)
+		}
+	}
+}
+
+// startPaste reads the clipboard in the background; applyPaste uses the result.
+func (a *App) startPaste(insert bool) {
+	run := a.clipRun
+	if run == nil {
+		run = execRunner
+	}
+	wayland := onWayland()
+	go func() {
+		text, err := readClipboard(run, wayland)
+		a.mu.Lock()
+		a.paste = &pasteResult{text, err, insert}
+		a.mu.Unlock()
+		a.invalidate()
+	}()
+}
+
+// applyPaste puts a finished clipboard read into the URL field, or shows its
+// error on the status line. It does not submit; Enter or Add still does that.
+func (a *App) applyPaste(gtx theme.C) {
+	a.mu.Lock()
+	p := a.paste
+	a.paste = nil
+	if p != nil {
+		a.probeErr, a.note = "", ""
+		if p.err != nil {
+			a.probeErr = p.err.Error()
+		}
+	}
+	a.mu.Unlock()
+	if p == nil || p.err != nil {
+		return
+	}
+	if p.insert {
+		a.url.Insert(p.text)
+	} else {
+		a.url.SetText(p.text)
+		a.url.SetCaret(a.url.Len(), a.url.Len())
+	}
+	gtx.Execute(key.FocusCmd{Tag: &a.url})
 }
 
 func (a *App) addButton(gtx theme.C) theme.D {

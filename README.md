@@ -30,6 +30,7 @@ Developed and tested on Linux (Wayland, wlroots) only. Other platforms are untes
 - `ffmpeg` and `ffprobe`, for merging and embedding.
 - A JS runtime such as `deno` is recommended for YouTube (yt-dlp uses it for JS challenges).
 - `xdg-open`, for Open file / Show in folder.
+- `wl-clipboard` (`wl-paste`) on Wayland, or `xclip` / `xsel` on X11, for the Paste button and Ctrl+V.
 - To build: Go 1.27 or newer and Gio's Linux dependencies (Wayland and X11 dev libraries, libxkbcommon, EGL/Vulkan headers). See https://gioui.org/doc/install/linux.
 
 ## Install

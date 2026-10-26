@@ -343,3 +343,12 @@ func TestBarButtonDisabledNoInk(t *testing.T) {
 		t.Errorf("history = %v, want empty", h)
 	}
 }
+
+func TestEmbeddedIconDecodes(t *testing.T) {
+	if iconImage == nil {
+		t.Fatal("icon-64.png did not decode")
+	}
+	if b := iconImage.Bounds(); b.Dx() != 64 || b.Dy() != 64 {
+		t.Fatalf("icon is %v, want 64x64", b)
+	}
+}

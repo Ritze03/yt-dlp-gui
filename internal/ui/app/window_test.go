@@ -346,9 +346,9 @@ func TestBarButtonDisabledNoInk(t *testing.T) {
 
 func TestEmbeddedIconDecodes(t *testing.T) {
 	if iconImage == nil {
-		t.Fatal("icon-64.png did not decode")
+		t.Fatal("icon-128.png did not decode")
 	}
-	if b := iconImage.Bounds(); b.Dx() != 64 || b.Dy() != 64 {
-		t.Fatalf("icon is %v, want 64x64", b)
+	if b := iconImage.Bounds(); b.Dx() != 128 || b.Dy() != 128 {
+		t.Fatalf("icon is %v, want 128x128", b)
 	}
 }

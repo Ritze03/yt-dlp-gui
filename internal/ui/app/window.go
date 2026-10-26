@@ -237,7 +237,7 @@ func (a *App) retryHook(o *ytdlp.Options) {
 	o.Cookies, o.Subs, o.SubLang = a.s.Cookies, a.s.Subs, a.s.SubLang
 }
 
-//go:embed icon-64.png
+//go:embed icon-128.png
 var iconPNG []byte
 
 // iconImage is the decoded app icon (64x64), shown in the header.
@@ -252,7 +252,7 @@ var iconImage = func() image.Image {
 
 var iconOp paint.ImageOp
 
-// appIcon draws the app icon at 24dp square.
+// appIcon draws the app icon as a square as tall as the Add button (38dp).
 func appIcon(gtx theme.C) theme.D {
 	if iconImage == nil {
 		return theme.D{}
@@ -260,7 +260,7 @@ func appIcon(gtx theme.C) theme.D {
 	if iconOp.Size() == (image.Point{}) {
 		iconOp = paint.NewImageOp(iconImage)
 	}
-	sz := gtx.Dp(24)
+	sz := gtx.Dp(38) // = Add button height: 10+10 inset + 18dp Body2 line
 	gtx.Constraints = layout.Exact(image.Pt(sz, sz))
 	return widget.Image{Src: iconOp, Fit: widget.Contain}.Layout(gtx)
 }

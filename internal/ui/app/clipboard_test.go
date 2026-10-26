@@ -158,28 +158,12 @@ func TestCtrlVReachesEditorWithoutPasteKey(t *testing.T) {
 	}
 }
 
-// The Paste button replaces the whole field and puts the caret at the end.
-func TestPasteButtonReplaces(t *testing.T) {
-	a, frame := pasteApp("https://e/new\n")
-	a.url.SetText("old text")
-	gtx := frame(nil)
-	a.startPaste(false)
-	waitPaste(a)
-	a.applyPaste(gtx)
-	if got := a.url.Text(); got != "https://e/new" {
-		t.Errorf("text = %q", got)
-	}
-	if s, e := a.url.Selection(); s != 13 || e != 13 {
-		t.Errorf("caret = %d,%d, want at the end", s, e)
-	}
-}
-
 func TestPasteErrorShownOnStatus(t *testing.T) {
 	a, frame := pasteApp("")
 	a.clipRun = fakeClip("", exec.ErrNotFound, nil)
 	a.url.SetText("keep")
 	gtx := frame(nil)
-	a.startPaste(false)
+	a.startPaste()
 	waitPaste(a)
 	a.applyPaste(gtx)
 	a.mu.Lock()

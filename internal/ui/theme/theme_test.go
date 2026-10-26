@@ -29,14 +29,8 @@ func TestPaletteContrast(t *testing.T) {
 	for name, p := range map[string]Palette{"dark": Dark, "light": Light} {
 		for _, bg := range []color.NRGBA{p.Bg, p.Surface} {
 			for cn, c := range map[string]color.NRGBA{"Fg": p.Fg, "Muted": p.Muted, "Error": p.Error, "Warning": p.Warning, "Success": p.Success, "Accent": p.Accent} {
-				min := 4.5
-				// Graphite's dark Error and Accent are 3.8-4.4:1 (fine for icons,
-				// bold/large text and UI components, WCAG 3:1).
-				if name == "dark" && (cn == "Error" || cn == "Accent") {
-					min = 3.0
-				}
-				if r := contrast(c, bg); r < min {
-					t.Errorf("%s %s on %v: %.2f < %.1f", name, cn, bg, r, min)
+				if r := contrast(c, bg); r < 4.5 {
+					t.Errorf("%s %s on %v: %.2f < 4.5", name, cn, bg, r)
 				}
 			}
 		}

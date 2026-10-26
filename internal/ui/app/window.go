@@ -3,8 +3,12 @@
 package app
 
 import (
+	"bytes"
 	"context"
+	_ "embed"
 	"errors"
+	"image"
+	"image/png"
 	"log"
 	"slices"
 	"strconv"
@@ -15,6 +19,7 @@ import (
 	"gioui.org/io/key"
 	"gioui.org/layout"
 	"gioui.org/op"
+	"gioui.org/op/paint"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 
@@ -236,12 +241,40 @@ func (a *App) retryHook(o *ytdlp.Options) {
 	o.Cookies, o.Subs, o.SubLang = a.s.Cookies, a.s.Subs, a.s.SubLang
 }
 
+//go:embed icon-64.png
+var iconPNG []byte
+
+// iconImage is the decoded app icon (64x64), shown in the header.
+var iconImage = func() image.Image {
+	img, err := png.Decode(bytes.NewReader(iconPNG))
+	if err != nil {
+		log.Printf("app icon: %v", err)
+		return nil
+	}
+	return img
+}()
+
+var iconOp paint.ImageOp
+
+// appIcon draws the app icon at 24dp square.
+func appIcon(gtx theme.C) theme.D {
+	if iconImage == nil {
+		return theme.D{}
+	}
+	if iconOp.Size() == (image.Point{}) {
+		iconOp = paint.NewImageOp(iconImage)
+	}
+	sz := gtx.Dp(24)
+	gtx.Constraints = layout.Exact(image.Pt(sz, sz))
+	return widget.Image{Src: iconOp, Fit: widget.Contain}.Layout(gtx)
+}
+
 func (a *App) header(gtx theme.C) theme.D {
 	t := a.th
 	return layout.Inset{Top: 16, Left: pad, Right: pad, Bottom: 16}.Layout(gtx, func(gtx theme.C) theme.D {
 		return layout.Flex{Alignment: layout.Middle}.Layout(gtx,
-			layout.Rigid(func(gtx theme.C) theme.D { return theme.Icon(gtx, theme.IcDownload, 24, t.P.Accent) }),
-			layout.Rigid(layout.Spacer{Width: 10}.Layout),
+			layout.Rigid(appIcon),
+			layout.Rigid(layout.Spacer{Width: 8}.Layout),
 			layout.Flexed(1, t.Title("yt-dlp-gui").Layout),
 			layout.Rigid(t.IconButton(&a.gearBt, theme.IcSettings, "Settings").Layout),
 		)

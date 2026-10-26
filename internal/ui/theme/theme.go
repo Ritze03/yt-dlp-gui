@@ -35,10 +35,12 @@ func rgb(c uint32) color.NRGBA {
 }
 
 var (
+	// Dark uses the Graphite theme colours: Bg=PANEL, Surface=BTN, Fg=TEXT, Muted=DIM,
+	// Accent=ACCENT, OnAccent=PRIMARY_TEXT, Divider=BORDER, Track=steel(40).
 	Dark = Palette{
-		Bg: rgb(0x121212), Surface: rgb(0x1e1e1e), Fg: rgb(0xe8e8ec), Muted: rgb(0xa1a1aa),
-		Accent: rgb(0x818cf8), OnAccent: rgb(0x0b0b0f), Divider: rgb(0x34343a), Track: rgb(0x2e2e34),
-		Error: rgb(0xf87171), Warning: rgb(0xfbbf24), Success: rgb(0x4ade80),
+		Bg: rgb(0x1e2125), Surface: rgb(0x262a30), Fg: rgb(0xe7e9ec), Muted: rgb(0x969ca6),
+		Accent: rgb(0x5b8bf0), OnAccent: rgb(0x0b1222), Divider: rgb(0x2c3036), Track: rgb(0x24282f),
+		Error: rgb(0xe15554), Warning: rgb(0xd8b455), Success: rgb(0x6cc551),
 	}
 	Light = Palette{
 		Bg: rgb(0xfafafa), Surface: rgb(0xffffff), Fg: rgb(0x1a1a1e), Muted: rgb(0x5b5b66),
